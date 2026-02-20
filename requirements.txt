@@ -8,3 +8,4 @@ tqdm>=4.66.0
 onnx>=1.12.0,<2.0.0
 onnxruntime>=1.17.0
 onnxslim>=0.1.71
+lapx>=0.5.12

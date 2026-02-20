@@ -64,6 +64,16 @@ class FlowTrackPipeline:
         include_classes = list(config.get("classes", {}).get("include", []))
         model_cfg = config.get("model", {})
         resolved_weights = self._resolve_weights(model_cfg, self.log)
+        self._detector_cfg = DetectorConfig(
+            weights=resolved_weights,
+            device=str(model_cfg.get("device", "")),
+            conf=float(model_cfg.get("conf", 0.35)),
+            iou=float(model_cfg.get("iou", 0.45)),
+            imgsz=int(model_cfg.get("imgsz", 960)),
+            half=bool(model_cfg.get("half", False)),
+            max_det=int(model_cfg.get("max_det", 300)),
+            include_classes=include_classes,
+        )
 
         self.tracking_enabled = bool(config.get("tracking", {}).get("enabled", True))
         if self.tracking_enabled:
@@ -82,18 +92,7 @@ class FlowTrackPipeline:
             )
             self.detector = None
         else:
-            self.detector = YoloDetector(
-                DetectorConfig(
-                    weights=resolved_weights,
-                    device=str(model_cfg.get("device", "")),
-                    conf=float(model_cfg.get("conf", 0.35)),
-                    iou=float(model_cfg.get("iou", 0.45)),
-                    imgsz=int(model_cfg.get("imgsz", 960)),
-                    half=bool(model_cfg.get("half", False)),
-                    max_det=int(model_cfg.get("max_det", 300)),
-                    include_classes=include_classes,
-                )
-            )
+            self.detector = YoloDetector(self._detector_cfg)
             self.tracker = None
 
         line_cfg = config.get("line_counter", {})
@@ -144,7 +143,16 @@ class FlowTrackPipeline:
 
     def _process_tracks(self, frame) -> list[TrackedObject]:
         if self.tracker is not None:
-            return self.tracker.track(frame)
+            try:
+                return self.tracker.track(frame)
+            except ModuleNotFoundError as e:
+                if e.name == "lap":
+                    self.log.warning("Tracking dependency 'lap' is missing. Falling back to detection-only mode.")
+                    self.tracker = None
+                    if self.detector is None:
+                        self.detector = YoloDetector(self._detector_cfg)
+                else:
+                    raise
 
         assert self.detector is not None
         dets = self.detector.infer(frame)
