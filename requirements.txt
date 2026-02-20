@@ -3,6 +3,7 @@ opencv-python-headless>=4.9.0.80
 numpy>=1.24.0
 PyYAML>=6.0.1
 streamlit>=1.38.0
+gradio>=5.0.0
 pandas>=2.2.0
 tqdm>=4.66.0
 onnx>=1.12.0,<2.0.0

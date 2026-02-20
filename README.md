@@ -1,6 +1,9 @@
 # FlowTrack
 
-FlowTrack is a real-time traffic monitoring and analytics system built with YOLO + ByteTrack + OpenCV, with a Streamlit dashboard for live monitoring.
+FlowTrack is a real-time traffic monitoring and analytics system built with YOLO + ByteTrack + OpenCV, with Streamlit and Gradio dashboards for live monitoring.
+
+## One-Click Colab
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/oaboelazm/FlowTrack/blob/main/notebooks/FlowTrack_Colab_Training_and_Stream.ipynb)
 
 ## Current Status
 - End-to-end pipeline implemented for Phases 1 to 5.
@@ -18,6 +21,7 @@ FlowTrack is a real-time traffic monitoring and analytics system built with YOLO
 - Movement heatmap overlay
 - CSV persistence for metrics and crossing events
 - Live Streamlit dashboard
+- Live Gradio dashboard (recommended for Colab GPU sessions)
 
 ## Project Structure
 - `src/ingestion` stream readers and reconnect handling
@@ -30,6 +34,7 @@ FlowTrack is a real-time traffic monitoring and analytics system built with YOLO
 - `src/app/pipeline.py` unified runtime engine
 - `src/main.py` CLI runtime entrypoint
 - `streamlit_app.py` web dashboard
+- `gradio_app.py` web dashboard (GPU-friendly runtime loop)
 - `configs/default.yaml` runtime config
 - `configs/training/*` training configs
 - `docs/` technical documentation and model report
@@ -55,6 +60,24 @@ python -m src.main --source "rtsp://user:pass@host:554/stream"
 Streamlit:
 ```bash
 streamlit run streamlit_app.py
+```
+
+Gradio (recommended on Colab / GPU):
+```bash
+python gradio_app.py
+```
+
+## Colab Quick Deploy (GPU)
+Run these cells in Colab if you want the app up quickly:
+
+```bash
+!git clone https://github.com/oaboelazm/FlowTrack.git
+%cd FlowTrack
+!pip install -r requirements.txt
+```
+
+```bash
+!GRADIO_SHARE=1 python gradio_app.py
 ```
 
 ## Training
