@@ -9,7 +9,7 @@ source:
   reconnect_delay_sec: 2.0
 
 model:
-  weights: "models/flowtrack_best.pt"
+  weights: "yolov8n.pt"
   device: ""
   conf: 0.35
   iou: 0.45

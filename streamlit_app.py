@@ -72,10 +72,19 @@ def start_runner(cfg: dict) -> None:
         except Exception:
             pass
 
-    runner = FlowTrackPipeline(cfg)
-    runner.start()
-    st.session_state.runner = runner
-    st.session_state.running = True
+    try:
+        runner = FlowTrackPipeline(cfg)
+        runner.start()
+        st.session_state.runner = runner
+        st.session_state.running = True
+    except FileNotFoundError as e:
+        fallback_cfg = deepcopy(cfg)
+        fallback_cfg["model"]["weights"] = "yolov8n.pt"
+        st.warning(f"{e}. Falling back to yolov8n.pt")
+        runner = FlowTrackPipeline(fallback_cfg)
+        runner.start()
+        st.session_state.runner = runner
+        st.session_state.running = True
 
 
 def stop_runner() -> None:

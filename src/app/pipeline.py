@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import cv2
@@ -25,6 +26,25 @@ class RuntimeConfig:
 
 
 class FlowTrackPipeline:
+    @staticmethod
+    def _resolve_weights(model_cfg: Dict[str, Any], logger) -> str:
+        requested = str(model_cfg.get("weights", "yolov8n.pt")).strip()
+        if not requested:
+            return "yolov8n.pt"
+
+        p = Path(requested)
+        if p.exists():
+            return requested
+
+        is_local_like = ("/" in requested) or ("\\" in requested) or requested.startswith(".")
+        is_custom_pt = requested.endswith(".pt") and not requested.lower().startswith("yolo")
+        if is_local_like or is_custom_pt:
+            fallback = "yolov8n.pt"
+            logger.warning("Weights '%s' not found. Falling back to '%s'.", requested, fallback)
+            return fallback
+
+        return requested
+
     def __init__(self, config: Dict[str, Any]):
         self.log = setup_logger()
         self.cfg = config
@@ -41,12 +61,13 @@ class FlowTrackPipeline:
 
         include_classes = list(config.get("classes", {}).get("include", []))
         model_cfg = config.get("model", {})
+        resolved_weights = self._resolve_weights(model_cfg, self.log)
 
         self.tracking_enabled = bool(config.get("tracking", {}).get("enabled", True))
         if self.tracking_enabled:
             self.tracker = ByteTrackTracker(
                 ByteTrackConfig(
-                    weights=str(model_cfg.get("weights", "yolov8n.pt")),
+                    weights=resolved_weights,
                     tracker=str(config.get("tracking", {}).get("tracker", "bytetrack.yaml")),
                     device=str(model_cfg.get("device", "")),
                     conf=float(model_cfg.get("conf", 0.35)),
@@ -61,7 +82,7 @@ class FlowTrackPipeline:
         else:
             self.detector = YoloDetector(
                 DetectorConfig(
-                    weights=str(model_cfg.get("weights", "yolov8n.pt")),
+                    weights=resolved_weights,
                     device=str(model_cfg.get("device", "")),
                     conf=float(model_cfg.get("conf", 0.35)),
                     iou=float(model_cfg.get("iou", 0.45)),
