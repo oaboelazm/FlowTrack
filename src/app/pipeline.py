@@ -135,17 +135,6 @@ class FlowTrackPipeline:
         self.fps = 0.0
         self.t_prev = time.time()
         self.t_last_store = 0.0
-        self.last_counts: Dict[str, int] = {}
-        self.last_metrics: Dict[str, float] = {
-            "vehicles_per_min": 0.0,
-            "vehicles_per_hour": 0.0,
-            "pedestrians_per_min": 0.0,
-            "traffic_density": 0.0,
-            "avg_speed_kmh": 0.0,
-            "congestion": 0.0,
-            "abnormal_stops": 0.0,
-            "active_tracks": 0.0,
-        }
 
     def start(self) -> None:
         if not self.source.connect():
@@ -194,33 +183,20 @@ class FlowTrackPipeline:
             return None
 
         self.frame_idx += 1
+        if self.runtime.frame_skip > 0 and self.frame_idx % (self.runtime.frame_skip + 1) != 0:
+            return None
+
         frame = cv2.resize(frame, (self.runtime.resize_width, self.runtime.resize_height))
+        tracks = self._process_tracks(frame)
+        counts = self._counts_by_class(tracks)
 
         now = time.time()
         dt = max(now - self.t_prev, 1e-6)
         self.fps = 0.9 * self.fps + 0.1 * (1.0 / dt) if self.fps > 0 else (1.0 / dt)
         self.t_prev = now
 
-        should_skip_inference = self.runtime.frame_skip > 0 and self.frame_idx % (self.runtime.frame_skip + 1) != 0
-        if should_skip_inference:
-            vis = draw_line(frame, self.line_counter.cfg.p1, self.line_counter.cfg.p2)
-            vis = draw_dashboard(vis, self.fps, self.last_counts, self.line_counter.summary(), self.last_metrics)
-            return PipelineOutput(
-                frame_bgr=vis,
-                fps=self.fps,
-                counts_per_frame=self.last_counts,
-                total_tracks_in_frame=int(self.last_metrics.get("active_tracks", 0.0)),
-                crossing_events=[],
-                metrics=self.last_metrics,
-            )
-
-        tracks = self._process_tracks(frame)
-        counts = self._counts_by_class(tracks)
-
         crossing_events: list[CrossingEvent] = self.line_counter.update(tracks, now)
         metrics = self.analytics.update(tracks, crossing_events, frame.shape, now)
-        self.last_counts = counts
-        self.last_metrics = metrics
 
         vis = frame
         if self.show_heatmap:
