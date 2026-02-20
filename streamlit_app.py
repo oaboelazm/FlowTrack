@@ -155,6 +155,7 @@ def main() -> None:
     events_placeholder = st.empty()
 
     output = None
+    should_rerun = False
     if st.session_state.running and st.session_state.runner is not None:
         output = st.session_state.runner.process_next()
         if output is not None:
@@ -194,9 +195,7 @@ def main() -> None:
                         }
                     )
                 st.session_state.events = st.session_state.events[-100:]
-
-        time.sleep(0.06)
-        st.rerun()
+        should_rerun = True
 
     # Keep UI stable: always show the last good frame and last metrics.
     if st.session_state.last_frame_rgb is not None:
@@ -222,6 +221,10 @@ def main() -> None:
         events_placeholder.dataframe(pd.DataFrame(st.session_state.events[::-1]), use_container_width=True, height=220)
     else:
         events_placeholder.info("No crossing events yet.")
+
+    if should_rerun:
+        time.sleep(0.06)
+        st.rerun()
 
 
 if __name__ == "__main__":
