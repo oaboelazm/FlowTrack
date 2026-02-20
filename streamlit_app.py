@@ -47,7 +47,7 @@ def build_config() -> dict:
     x2 = st.sidebar.number_input("x2", min_value=0, max_value=4000, value=int(cfg["line_counter"].get("x2", 1180)))
     y2 = st.sidebar.number_input("y2", min_value=0, max_value=4000, value=int(cfg["line_counter"].get("y2", 360)))
 
-    cfg["source"]["input"] = source
+    cfg["source"]["input"] = str(source).strip()
     cfg["model"]["weights"] = weights
     cfg["model"]["conf"] = conf
     cfg["model"]["iou"] = iou
@@ -85,6 +85,13 @@ def start_runner(cfg: dict) -> None:
         runner.start()
         st.session_state.runner = runner
         st.session_state.running = True
+    except RuntimeError as e:
+        st.error(
+            f"{e}\n\nTips:\n"
+            "- For URL streams, paste the URL in one single line.\n"
+            "- For EarthCam/HLS token URLs, refresh and use a new tokenized link.\n"
+            "- On Streamlit Cloud, webcam source 0 is not available."
+        )
 
 
 def stop_runner() -> None:

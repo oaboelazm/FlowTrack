@@ -52,6 +52,8 @@ class FlowTrackPipeline:
         source_cfg = SourceConfig(
             input_source=str(config["source"]["input"]),
             reconnect_delay_sec=float(config["source"].get("reconnect_delay_sec", 2.0)),
+            user_agent=str(config["source"].get("user_agent", "")),
+            referer=str(config["source"].get("referer", "")),
         )
         runtime_cfg = RuntimeConfig(
             frame_skip=int(config["runtime"].get("frame_skip", 0)),
