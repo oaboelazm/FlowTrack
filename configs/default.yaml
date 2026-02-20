@@ -1,0 +1,57 @@
+app:
+  window_name: "FlowTrack - Real-Time Traffic Intelligence"
+  display: true
+  print_counts: false
+  show_heatmap: false
+
+source:
+  input: "0"
+  reconnect_delay_sec: 2.0
+
+model:
+  weights: "yolov8n.pt"
+  device: ""
+  conf: 0.35
+  iou: 0.45
+  imgsz: 960
+  half: false
+  max_det: 300
+
+classes:
+  include:
+    - person
+    - bicycle
+    - car
+    - motorcycle
+    - bus
+    - truck
+
+tracking:
+  enabled: true
+  tracker: "bytetrack.yaml"
+
+line_counter:
+  x1: 100
+  y1: 360
+  x2: 1180
+  y2: 360
+  cooldown_sec: 1.5
+
+analytics:
+  congestion_vehicle_threshold: 18
+  congestion_hold_frames: 25
+  stop_speed_px_per_sec: 10.0
+  stop_duration_sec: 8.0
+  meters_per_pixel: 0.05
+  enable_heatmap: true
+
+storage:
+  enabled: true
+  metrics_csv: "outputs/metrics.csv"
+  events_csv: "outputs/crossings.csv"
+  write_interval_sec: 1.0
+
+runtime:
+  frame_skip: 0
+  resize_width: 1280
+  resize_height: 720
