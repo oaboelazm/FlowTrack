@@ -6,17 +6,8 @@ from typing import Dict, List, Set
 import numpy as np
 from ultralytics import YOLO
 
+from src.core.class_names import canonical_class_name
 from src.core.entities import Detection
-
-
-COCO_TRAFFIC_MAP = {
-    "person": 0,
-    "bicycle": 1,
-    "car": 2,
-    "motorcycle": 3,
-    "bus": 5,
-    "truck": 7,
-}
 
 
 @dataclass
@@ -35,8 +26,7 @@ class YoloDetector:
     def __init__(self, cfg: DetectorConfig):
         self.cfg = cfg
         self.model = YOLO(cfg.weights)
-        valid = [c for c in cfg.include_classes if c in COCO_TRAFFIC_MAP]
-        self.target_ids: Set[int] = {COCO_TRAFFIC_MAP[c] for c in valid}
+        self.include_classes: Set[str] = {canonical_class_name(c) for c in cfg.include_classes}
 
     def infer(self, frame: np.ndarray) -> List[Detection]:
         results = self.model.predict(
@@ -62,14 +52,16 @@ class YoloDetector:
 
         for box in boxes:
             cls_id = int(box.cls.item())
-            if self.target_ids and cls_id not in self.target_ids:
+            raw_name = str(names.get(cls_id, str(cls_id)))
+            class_name = canonical_class_name(raw_name)
+            if self.include_classes and class_name not in self.include_classes:
                 continue
 
             x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
             detections.append(
                 Detection(
                     class_id=cls_id,
-                    class_name=str(names.get(cls_id, str(cls_id))),
+                    class_name=class_name,
                     confidence=float(box.conf.item()),
                     bbox_xyxy=[x1, y1, x2, y2],
                 )

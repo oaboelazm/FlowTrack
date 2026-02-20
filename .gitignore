@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data and model artifacts
+outputs/
+runs/
+artifacts/
+checkpoints/
+*.pt
+*.onnx
+*.engine
+*.torchscript
+
+# Training datasets and caches
+data/
+datasets/
+*.cache
+
+# Streamlit and logs
+.streamlit/
+*.log

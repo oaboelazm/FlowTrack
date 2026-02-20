@@ -1,0 +1,15 @@
+project: runs/flowtrack
+name: visdrone_quick
+model: yolov8n.pt
+data: VisDrone.yaml
+epochs: 1
+imgsz: 640
+batch: 8
+device: cpu
+workers: 2
+patience: 5
+optimizer: auto
+amp: false
+save: true
+plots: true
+pretrained: true

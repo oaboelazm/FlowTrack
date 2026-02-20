@@ -1,0 +1,15 @@
+project: runs/flowtrack
+name: visdrone_smoke5
+model: yolov8n.pt
+data: VisDrone.yaml
+epochs: 5
+imgsz: 640
+batch: 8
+device: cpu
+workers: 2
+patience: 3
+fraction: 0.01
+amp: false
+save: true
+plots: true
+pretrained: true

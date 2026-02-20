@@ -6,8 +6,8 @@ from typing import Dict, List, Set
 import numpy as np
 from ultralytics import YOLO
 
+from src.core.class_names import canonical_class_name
 from src.core.entities import TrackedObject
-from src.detection.yolo_detector import COCO_TRAFFIC_MAP
 
 
 @dataclass
@@ -27,8 +27,7 @@ class ByteTrackTracker:
     def __init__(self, cfg: ByteTrackConfig):
         self.cfg = cfg
         self.model = YOLO(cfg.weights)
-        valid = [c for c in cfg.include_classes if c in COCO_TRAFFIC_MAP]
-        self.target_ids: Set[int] = {COCO_TRAFFIC_MAP[c] for c in valid}
+        self.include_classes: Set[str] = {canonical_class_name(c) for c in cfg.include_classes}
 
     def track(self, frame: np.ndarray) -> List[TrackedObject]:
         results = self.model.track(
@@ -58,13 +57,15 @@ class ByteTrackTracker:
 
         for box, track_id in zip(boxes, ids):
             cls_id = int(box.cls.item())
-            if self.target_ids and cls_id not in self.target_ids:
+            raw_name = str(names.get(cls_id, str(cls_id)))
+            class_name = canonical_class_name(raw_name)
+            if self.include_classes and class_name not in self.include_classes:
                 continue
             x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
             tracks.append(
                 TrackedObject(
                     class_id=cls_id,
-                    class_name=str(names.get(cls_id, str(cls_id))),
+                    class_name=class_name,
                     confidence=float(box.conf.item()),
                     bbox_xyxy=[x1, y1, x2, y2],
                     track_id=int(track_id) if track_id is not None else None,
