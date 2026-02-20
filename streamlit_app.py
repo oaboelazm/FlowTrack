@@ -56,6 +56,7 @@ def build_config() -> dict:
     tracking_enabled = st.sidebar.checkbox("Enable Tracking (ByteTrack)", value=bool(cfg["tracking"].get("enabled", True)))
     show_heatmap = st.sidebar.checkbox("Show Heatmap", value=bool(cfg["app"].get("show_heatmap", False)))
     smooth_mode = st.sidebar.checkbox("Smooth Stream Mode (Recommended)", value=True)
+    refresh_ms = st.sidebar.slider("UI Refresh (ms)", 80, 500, int(cfg["app"].get("refresh_ms", 140)), 20)
 
     st.sidebar.subheader("Counting Line")
     x1 = st.sidebar.number_input("x1", min_value=0, max_value=4000, value=int(cfg["line_counter"].get("x1", 100)))
@@ -73,6 +74,7 @@ def build_config() -> dict:
     cfg["tracking"]["enabled"] = tracking_enabled
     cfg["app"]["show_heatmap"] = show_heatmap
     cfg["app"]["display"] = False
+    cfg["app"]["refresh_ms"] = int(refresh_ms)
     cfg["line_counter"]["x1"] = int(x1)
     cfg["line_counter"]["y1"] = int(y1)
     cfg["line_counter"]["x2"] = int(x2)
@@ -82,6 +84,7 @@ def build_config() -> dict:
         cfg["app"]["show_heatmap"] = False
         cfg["runtime"]["frame_skip"] = max(int(cfg["runtime"].get("frame_skip", 0)), 1)
         cfg["model"]["imgsz"] = min(int(cfg["model"]["imgsz"]), 640)
+        cfg["app"]["refresh_ms"] = max(int(cfg["app"]["refresh_ms"]), 140)
 
     return cfg
 
@@ -138,9 +141,9 @@ def main() -> None:
     )
 
     c1, c2, c3 = st.columns([1, 1, 4])
-    if c1.button("Start", use_container_width=True):
+    if c1.button("Start", width="stretch"):
         start_runner(cfg)
-    if c2.button("Stop", use_container_width=True):
+    if c2.button("Stop", width="stretch"):
         stop_runner()
     c3.caption("Phase 1-5: detection, tracking, line counting, analytics, congestion/stop alerts, heatmap")
     st.caption(
@@ -199,7 +202,12 @@ def main() -> None:
 
     # Keep UI stable: always show the last good frame and last metrics.
     if st.session_state.last_frame_rgb is not None:
-        frame_placeholder.image(st.session_state.last_frame_rgb, channels="RGB", use_container_width=True)
+        frame_placeholder.image(
+            st.session_state.last_frame_rgb,
+            channels="RGB",
+            width="stretch",
+            output_format="JPEG",
+        )
     else:
         frame_placeholder.info("Waiting for first valid frame...")
 
@@ -218,12 +226,12 @@ def main() -> None:
         chart_placeholder.info("No analytics data yet.")
 
     if st.session_state.events:
-        events_placeholder.dataframe(pd.DataFrame(st.session_state.events[::-1]), use_container_width=True, height=220)
+        events_placeholder.dataframe(pd.DataFrame(st.session_state.events[::-1]), width="stretch", height=220)
     else:
         events_placeholder.info("No crossing events yet.")
 
     if should_rerun:
-        time.sleep(0.06)
+        time.sleep(float(cfg["app"].get("refresh_ms", 140)) / 1000.0)
         st.rerun()
 
 
