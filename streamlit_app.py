@@ -6,6 +6,7 @@ from copy import deepcopy
 import cv2
 import pandas as pd
 import streamlit as st
+import torch
 
 from src.app.pipeline import FlowTrackPipeline
 from src.utils.config import load_yaml
@@ -31,7 +32,10 @@ def build_config() -> dict:
     st.sidebar.header("FlowTrack Controls")
     source = st.sidebar.text_input("Camera Source", value=str(cfg["source"].get("input", "0")))
     weights = st.sidebar.text_input("Weights", value=str(cfg["model"].get("weights", "yolov8n.pt")))
-    device = st.sidebar.text_input("Device (cpu / cuda:0)", value=str(cfg["model"].get("device", "")))
+    default_device = str(cfg["model"].get("device", "")).strip()
+    if not default_device:
+        default_device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    device = st.sidebar.text_input("Device (cpu / cuda:0)", value=default_device)
 
     conf = st.sidebar.slider("Confidence", 0.1, 0.9, float(cfg["model"].get("conf", 0.35)), 0.01)
     iou = st.sidebar.slider("IoU", 0.1, 0.9, float(cfg["model"].get("iou", 0.45)), 0.01)
@@ -106,6 +110,15 @@ def main() -> None:
     st.title("FlowTrack | Smart Traffic Monitoring")
 
     cfg = build_config()
+    selected_device = str(cfg["model"].get("device", "")).strip()
+    cuda_available = torch.cuda.is_available()
+    if selected_device.startswith("cuda") and not cuda_available:
+        st.warning("CUDA is not available in this runtime. Inference will run on CPU.")
+    st.caption(
+        f"Runtime device: `{selected_device or 'auto'}` | "
+        f"CUDA available: `{cuda_available}` | "
+        f"PyTorch: `{torch.__version__}`"
+    )
 
     c1, c2, c3 = st.columns([1, 1, 4])
     if c1.button("Start", use_container_width=True):

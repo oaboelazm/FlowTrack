@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import cv2
+import torch
 
 from src.analytics.traffic_analytics import AnalyticsConfig, TrafficAnalytics
 from src.core.entities import CrossingEvent, PipelineOutput, TrackedObject
@@ -45,6 +46,27 @@ class FlowTrackPipeline:
 
         return requested
 
+    @staticmethod
+    def _resolve_device(model_cfg: Dict[str, Any], logger) -> str:
+        requested = str(model_cfg.get("device", "")).strip().lower()
+        has_cuda = torch.cuda.is_available()
+
+        if not requested:
+            selected = "cuda:0" if has_cuda else "cpu"
+            logger.info("Model device auto-selected: %s", selected)
+            return selected
+
+        if requested in {"cuda", "cuda:0", "0", "gpu"}:
+            if has_cuda:
+                return "cuda:0"
+            logger.warning("CUDA requested but not available. Falling back to CPU.")
+            return "cpu"
+
+        if requested in {"cpu", "-1"}:
+            return "cpu"
+
+        return requested
+
     def __init__(self, config: Dict[str, Any]):
         self.log = setup_logger()
         self.cfg = config
@@ -64,9 +86,10 @@ class FlowTrackPipeline:
         include_classes = list(config.get("classes", {}).get("include", []))
         model_cfg = config.get("model", {})
         resolved_weights = self._resolve_weights(model_cfg, self.log)
+        resolved_device = self._resolve_device(model_cfg, self.log)
         self._detector_cfg = DetectorConfig(
             weights=resolved_weights,
-            device=str(model_cfg.get("device", "")),
+            device=resolved_device,
             conf=float(model_cfg.get("conf", 0.35)),
             iou=float(model_cfg.get("iou", 0.45)),
             imgsz=int(model_cfg.get("imgsz", 960)),
@@ -81,7 +104,7 @@ class FlowTrackPipeline:
                 ByteTrackConfig(
                     weights=resolved_weights,
                     tracker=str(config.get("tracking", {}).get("tracker", "bytetrack.yaml")),
-                    device=str(model_cfg.get("device", "")),
+                    device=resolved_device,
                     conf=float(model_cfg.get("conf", 0.35)),
                     iou=float(model_cfg.get("iou", 0.45)),
                     imgsz=int(model_cfg.get("imgsz", 960)),
