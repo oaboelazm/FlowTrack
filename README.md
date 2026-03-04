@@ -79,6 +79,9 @@ Default runtime profile is now:
 
 This profile avoids frame-by-frame flicker and gives smooth video-like playback of detected traffic segments.
 Video loop is disabled by default, and the player switches to the next processed segment as soon as it is ready.
+Optional optimization:
+- Enable `Reuse Output Slots (Overwrite Mode)` and set `Output Slot Count` to `2` or `3`.
+- This reduces file create/delete churn and can improve UI smoothness on weak CPU/storage.
 
 If `ffmpeg` is available, each processed chunk is converted to browser-friendly H.264 MP4 (`yuv420p`) before rendering.
 

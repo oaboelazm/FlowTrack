@@ -16,6 +16,8 @@ source:
   chunk_queue_size: 3
   chunk_tmp_dir: "outputs/chunks"
   processed_chunk_dir: "outputs/processed_chunks"
+  processed_chunk_reuse: false
+  processed_chunk_slots: 2
 
 model:
   weights: "yolov8n.pt"

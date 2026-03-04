@@ -42,6 +42,8 @@ def _build_cfg(
     chunk_seconds: int,
     first_chunk_seconds: int,
     chunk_queue_size: int,
+    processed_chunk_reuse: bool,
+    processed_chunk_slots: int,
     segment_playback_mode: bool,
 ) -> Dict:
     cfg = deepcopy(load_yaml("configs/default.yaml"))
@@ -50,6 +52,8 @@ def _build_cfg(
     cfg["source"]["chunk_seconds"] = int(chunk_seconds)
     cfg["source"]["first_chunk_seconds"] = int(first_chunk_seconds)
     cfg["source"]["chunk_queue_size"] = int(chunk_queue_size)
+    cfg["source"]["processed_chunk_reuse"] = bool(processed_chunk_reuse)
+    cfg["source"]["processed_chunk_slots"] = int(processed_chunk_slots)
     cfg["model"]["weights"] = str(weights).strip()
     cfg["model"]["device"] = "" if device == "auto" else str(device).strip()
     cfg["model"]["conf"] = float(conf)
@@ -109,6 +113,8 @@ def run_stream(
     chunk_seconds: int,
     first_chunk_seconds: int,
     chunk_queue_size: int,
+    processed_chunk_reuse: bool,
+    processed_chunk_slots: int,
     segment_playback_mode: bool,
 ) -> Iterator[Tuple]:
     cfg = _build_cfg(
@@ -129,6 +135,8 @@ def run_stream(
         chunk_seconds=chunk_seconds,
         first_chunk_seconds=first_chunk_seconds,
         chunk_queue_size=chunk_queue_size,
+        processed_chunk_reuse=processed_chunk_reuse,
+        processed_chunk_slots=processed_chunk_slots,
         segment_playback_mode=segment_playback_mode,
     )
 
@@ -177,11 +185,12 @@ def run_stream(
                             }
                         )
 
-                recent_segment_videos.append(chunk_output.video_path)
-                while len(recent_segment_videos) > 4:
-                    stale = recent_segment_videos.popleft()
-                    if os.path.exists(stale):
-                        os.remove(stale)
+                if not cfg["source"].get("processed_chunk_reuse", False):
+                    recent_segment_videos.append(chunk_output.video_path)
+                    while len(recent_segment_videos) > 4:
+                        stale = recent_segment_videos.popleft()
+                        if os.path.exists(stale):
+                            os.remove(stale)
 
                 events_df = pd.DataFrame(list(events)) if events else empty_events
                 yield chunk_output.video_path, metrics_df, events_df, status
@@ -254,6 +263,9 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
                     step=1,
                 )
                 chunk_queue_size = gr.Slider(label="Chunk Queue Size", minimum=1, maximum=6, value=3, step=1)
+            with gr.Row():
+                processed_chunk_reuse = gr.Checkbox(label="Reuse Output Slots (Overwrite Mode)", value=False)
+                processed_chunk_slots = gr.Slider(label="Output Slot Count", minimum=2, maximum=6, value=2, step=1)
             segment_playback_mode = gr.Checkbox(
                 label="Segment Playback Mode (Smooth video, requires chunk mode)",
                 value=True,
@@ -298,6 +310,8 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
             chunk_seconds,
             first_chunk_seconds,
             chunk_queue_size,
+            processed_chunk_reuse,
+            processed_chunk_slots,
             segment_playback_mode,
         ],
         outputs=[segment_video, metrics_table, events_table, status],

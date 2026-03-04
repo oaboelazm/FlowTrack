@@ -68,6 +68,17 @@ def build_config() -> dict:
         int(cfg["source"].get("chunk_queue_size", 3)),
         1,
     )
+    processed_chunk_reuse = st.sidebar.checkbox(
+        "Reuse Output Slots (Overwrite Mode)",
+        value=bool(cfg["source"].get("processed_chunk_reuse", False)),
+    )
+    processed_chunk_slots = st.sidebar.slider(
+        "Output Slot Count",
+        2,
+        6,
+        int(cfg["source"].get("processed_chunk_slots", 2)),
+        1,
+    )
     weights = st.sidebar.text_input("Weights", value=str(cfg["model"].get("weights", "yolov8n.pt")))
     default_device = str(cfg["model"].get("device", "")).strip()
     if not default_device:
@@ -99,6 +110,8 @@ def build_config() -> dict:
     cfg["source"]["chunk_seconds"] = int(chunk_seconds)
     cfg["source"]["first_chunk_seconds"] = int(first_chunk_seconds)
     cfg["source"]["chunk_queue_size"] = int(chunk_queue_size)
+    cfg["source"]["processed_chunk_reuse"] = bool(processed_chunk_reuse)
+    cfg["source"]["processed_chunk_slots"] = int(processed_chunk_slots)
     cfg["model"]["weights"] = weights
     cfg["model"]["conf"] = conf
     cfg["model"]["iou"] = iou
@@ -186,7 +199,8 @@ def main() -> None:
         f"imgsz={cfg['model']['imgsz']} | frame_skip={cfg['runtime']['frame_skip']} | "
         f"chunk_mode={cfg['source'].get('chunk_mode', False)} | "
         f"chunk_seconds={cfg['source'].get('chunk_seconds', 30)} | "
-        f"first_chunk_seconds={cfg['source'].get('first_chunk_seconds', 20)}"
+        f"first_chunk_seconds={cfg['source'].get('first_chunk_seconds', 20)} | "
+        f"reuse_slots={cfg['source'].get('processed_chunk_reuse', False)}"
     )
 
     frame_placeholder = st.empty()
@@ -206,13 +220,14 @@ def main() -> None:
                 st.session_state.recent_video_paths.append(chunk_output.video_path)
                 st.session_state.recent_video_paths = st.session_state.recent_video_paths[-4:]
 
-                for old_path in st.session_state.recent_video_paths[:-2]:
-                    try:
-                        from pathlib import Path
+                if not cfg["source"].get("processed_chunk_reuse", False):
+                    for old_path in st.session_state.recent_video_paths[:-2]:
+                        try:
+                            from pathlib import Path
 
-                        Path(old_path).unlink(missing_ok=True)
-                    except Exception:
-                        pass
+                            Path(old_path).unlink(missing_ok=True)
+                        except Exception:
+                            pass
 
                 line_in = st.session_state.runner.line_counter.summary().get("incoming", 0)
                 line_out = st.session_state.runner.line_counter.summary().get("outgoing", 0)

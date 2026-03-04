@@ -31,16 +31,20 @@ class RuntimeConfig:
 
 class FlowTrackPipeline:
     @staticmethod
-    def _ensure_browser_video(video_path: Path) -> Path:
+    def _ensure_browser_video(video_path: Path, target_path: Optional[Path] = None) -> Path:
         """
         Convert generated clip to browser-friendly MP4 (H.264 + yuv420p) when ffmpeg exists.
         Falls back to original file if conversion fails.
         """
+        output_path = target_path if target_path is not None else video_path.with_name(f"{video_path.stem}_web.mp4")
         ffmpeg = shutil.which("ffmpeg")
         if ffmpeg is None:
+            if output_path != video_path:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(video_path), str(output_path))
+                return output_path
             return video_path
 
-        converted = video_path.with_name(f"{video_path.stem}_web.mp4")
         cmd = [
             ffmpeg,
             "-y",
@@ -56,14 +60,18 @@ class FlowTrackPipeline:
             "yuv420p",
             "-movflags",
             "+faststart",
-            str(converted),
+            str(output_path),
         ]
         try:
             subprocess.run(cmd, check=True)
-            video_path.unlink(missing_ok=True)
-            return converted
+            if output_path != video_path:
+                video_path.unlink(missing_ok=True)
+            return output_path
         except Exception:
-            converted.unlink(missing_ok=True)
+            output_path.unlink(missing_ok=True)
+            if output_path != video_path:
+                shutil.move(str(video_path), str(output_path))
+                return output_path
             return video_path
 
     @staticmethod
@@ -217,6 +225,9 @@ class FlowTrackPipeline:
         self.segment_playback_mode = bool(config.get("app", {}).get("segment_playback_mode", False))
         self.processed_chunks_dir = Path(str(source_settings.get("processed_chunk_dir", "outputs/processed_chunks")))
         self.processed_chunks_dir.mkdir(parents=True, exist_ok=True)
+        self.processed_chunk_reuse = bool(source_settings.get("processed_chunk_reuse", False))
+        self.processed_chunk_slots = max(2, int(source_settings.get("processed_chunk_slots", 2)))
+        self._processed_slot_idx = 0
 
         self.frame_idx = 0
         self.fps = 0.0
@@ -337,7 +348,13 @@ class FlowTrackPipeline:
         src_fps = float(cap.get(cv2.CAP_PROP_FPS))
         out_fps = src_fps if src_fps > 1.0 else 20.0
 
-        out_path = self.processed_chunks_dir / f"{chunk_path.stem}_det.mp4"
+        raw_out_path = self.processed_chunks_dir / f"{chunk_path.stem}_det_raw.mp4"
+        if self.processed_chunk_reuse:
+            slot_idx = self._processed_slot_idx % self.processed_chunk_slots
+            self._processed_slot_idx += 1
+            final_out_path = self.processed_chunks_dir / f"segment_slot_{slot_idx}.mp4"
+        else:
+            final_out_path = self.processed_chunks_dir / f"{chunk_path.stem}_det.mp4"
         writer = None
 
         total_frames = 0
@@ -370,7 +387,7 @@ class FlowTrackPipeline:
                 if writer is None:
                     h, w = vis.shape[:2]
                     writer = cv2.VideoWriter(
-                        str(out_path),
+                        str(raw_out_path),
                         cv2.VideoWriter_fourcc(*"mp4v"),
                         out_fps,
                         (w, h),
@@ -384,7 +401,7 @@ class FlowTrackPipeline:
             chunk_path.unlink(missing_ok=True)
 
         if total_frames == 0:
-            out_path.unlink(missing_ok=True)
+            raw_out_path.unlink(missing_ok=True)
             return None
 
         end_ts = time.time()
@@ -399,7 +416,7 @@ class FlowTrackPipeline:
             self.csv.append_events(crossing_events_all)
             self.t_last_store = end_ts
 
-        out_web_path = self._ensure_browser_video(out_path)
+        out_web_path = self._ensure_browser_video(raw_out_path, final_out_path)
 
         return ChunkPlaybackOutput(
             video_path=str(out_web_path),
