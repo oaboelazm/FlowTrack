@@ -42,6 +42,21 @@ def build_config() -> dict:
 
     st.sidebar.header("FlowTrack Controls")
     source = st.sidebar.text_input("Camera Source", value=str(cfg["source"].get("input", "0")))
+    chunk_mode = st.sidebar.checkbox("Chunked Stream Buffer Mode", value=bool(cfg["source"].get("chunk_mode", False)))
+    chunk_seconds = st.sidebar.slider(
+        "Chunk Duration (seconds)",
+        5,
+        60,
+        int(cfg["source"].get("chunk_seconds", 30)),
+        1,
+    )
+    chunk_queue_size = st.sidebar.slider(
+        "Chunk Queue Size",
+        1,
+        6,
+        int(cfg["source"].get("chunk_queue_size", 3)),
+        1,
+    )
     weights = st.sidebar.text_input("Weights", value=str(cfg["model"].get("weights", "yolov8n.pt")))
     default_device = str(cfg["model"].get("device", "")).strip()
     if not default_device:
@@ -65,6 +80,9 @@ def build_config() -> dict:
     y2 = st.sidebar.number_input("y2", min_value=0, max_value=4000, value=int(cfg["line_counter"].get("y2", 360)))
 
     cfg["source"]["input"] = str(source).strip()
+    cfg["source"]["chunk_mode"] = bool(chunk_mode)
+    cfg["source"]["chunk_seconds"] = int(chunk_seconds)
+    cfg["source"]["chunk_queue_size"] = int(chunk_queue_size)
     cfg["model"]["weights"] = weights
     cfg["model"]["conf"] = conf
     cfg["model"]["iou"] = iou
@@ -148,7 +166,9 @@ def main() -> None:
     c3.caption("Phase 1-5: detection, tracking, line counting, analytics, congestion/stop alerts, heatmap")
     st.caption(
         f"Live settings: tracking={cfg['tracking']['enabled']} | "
-        f"imgsz={cfg['model']['imgsz']} | frame_skip={cfg['runtime']['frame_skip']}"
+        f"imgsz={cfg['model']['imgsz']} | frame_skip={cfg['runtime']['frame_skip']} | "
+        f"chunk_mode={cfg['source'].get('chunk_mode', False)} | "
+        f"chunk_seconds={cfg['source'].get('chunk_seconds', 30)}"
     )
 
     frame_placeholder = st.empty()

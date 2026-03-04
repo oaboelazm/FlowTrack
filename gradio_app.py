@@ -29,9 +29,15 @@ def _build_cfg(
     resize_width: int,
     resize_height: int,
     target_fps: int,
+    chunk_mode: bool,
+    chunk_seconds: int,
+    chunk_queue_size: int,
 ) -> Dict:
     cfg = deepcopy(load_yaml("configs/default.yaml"))
     cfg["source"]["input"] = str(source).strip()
+    cfg["source"]["chunk_mode"] = bool(chunk_mode)
+    cfg["source"]["chunk_seconds"] = int(chunk_seconds)
+    cfg["source"]["chunk_queue_size"] = int(chunk_queue_size)
     cfg["model"]["weights"] = str(weights).strip()
     cfg["model"]["device"] = "" if device == "auto" else str(device).strip()
     cfg["model"]["conf"] = float(conf)
@@ -86,6 +92,9 @@ def run_stream(
     resize_width: int,
     resize_height: int,
     target_fps: int,
+    chunk_mode: bool,
+    chunk_seconds: int,
+    chunk_queue_size: int,
 ) -> Iterator[Tuple]:
     cfg = _build_cfg(
         source=source,
@@ -101,6 +110,9 @@ def run_stream(
         resize_width=resize_width,
         resize_height=resize_height,
         target_fps=target_fps,
+        chunk_mode=chunk_mode,
+        chunk_seconds=chunk_seconds,
+        chunk_queue_size=chunk_queue_size,
     )
 
     runner = None
@@ -176,6 +188,10 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
                 frame_skip = gr.Slider(label="Frame Skip", minimum=0, maximum=6, value=1, step=1)
                 target_fps = gr.Slider(label="UI Target FPS", minimum=2, maximum=20, value=8, step=1)
             with gr.Row():
+                chunk_mode = gr.Checkbox(label="Chunked Stream Buffer Mode", value=False)
+                chunk_seconds = gr.Slider(label="Chunk Duration (sec)", minimum=5, maximum=60, value=30, step=1)
+                chunk_queue_size = gr.Slider(label="Chunk Queue Size", minimum=1, maximum=6, value=3, step=1)
+            with gr.Row():
                 resize_width = gr.Slider(label="Resize Width", minimum=640, maximum=1920, value=960, step=32)
                 resize_height = gr.Slider(label="Resize Height", minimum=360, maximum=1080, value=540, step=18)
 
@@ -204,6 +220,9 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
             resize_width,
             resize_height,
             target_fps,
+            chunk_mode,
+            chunk_seconds,
+            chunk_queue_size,
         ],
         outputs=[frame, metrics_table, events_table, status],
     )

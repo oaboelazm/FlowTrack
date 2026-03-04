@@ -12,6 +12,7 @@ from src.analytics.traffic_analytics import AnalyticsConfig, TrafficAnalytics
 from src.core.entities import CrossingEvent, PipelineOutput, TrackedObject
 from src.detection.yolo_detector import DetectorConfig, YoloDetector
 from src.events.line_counter import LineCounter, LineCounterConfig
+from src.ingestion.chunked_source import ChunkedSourceConfig, ChunkedVideoSourceManager
 from src.ingestion.source_manager import SourceConfig, VideoSourceManager
 from src.storage.csv_writer import CsvWriter
 from src.tracking.bytetrack_tracker import ByteTrackConfig, ByteTrackTracker
@@ -147,7 +148,28 @@ class FlowTrackPipeline:
             events_path=str(storage_cfg.get("events_csv", "outputs/crossings.csv")),
         )
 
-        self.source = VideoSourceManager(source_cfg)
+        source_settings = config.get("source", {})
+        self.chunk_mode = bool(source_settings.get("chunk_mode", False))
+        if self.chunk_mode:
+            self.log.info(
+                "Chunk mode enabled: chunk_seconds=%s, queue_size=%s, temp_dir=%s",
+                source_settings.get("chunk_seconds", 30),
+                source_settings.get("chunk_queue_size", 3),
+                source_settings.get("chunk_tmp_dir", "outputs/chunks"),
+            )
+            self.source = ChunkedVideoSourceManager(
+                ChunkedSourceConfig(
+                    input_source=source_cfg.input_source,
+                    reconnect_delay_sec=source_cfg.reconnect_delay_sec,
+                    user_agent=source_cfg.user_agent,
+                    referer=source_cfg.referer,
+                    chunk_seconds=float(source_settings.get("chunk_seconds", 30.0)),
+                    max_queue_size=int(source_settings.get("chunk_queue_size", 3)),
+                    temp_dir=str(source_settings.get("chunk_tmp_dir", "outputs/chunks")),
+                )
+            )
+        else:
+            self.source = VideoSourceManager(source_cfg)
         self.runtime = runtime_cfg
         self.window_name = str(config.get("app", {}).get("window_name", "FlowTrack"))
         self.display = bool(config.get("app", {}).get("display", True))
@@ -200,6 +222,8 @@ class FlowTrackPipeline:
     def process_next(self) -> Optional[PipelineOutput]:
         ok, frame = self.source.read()
         if not ok or frame is None:
+            if self.chunk_mode:
+                return None
             self.log.warning("Frame read failed. Reconnecting...")
             if not self.source.reconnect():
                 return None

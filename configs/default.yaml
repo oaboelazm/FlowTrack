@@ -9,6 +9,10 @@ source:
   reconnect_delay_sec: 2.0
   user_agent: ""
   referer: ""
+  chunk_mode: false
+  chunk_seconds: 30
+  chunk_queue_size: 3
+  chunk_tmp_dir: "outputs/chunks"
 
 model:
   weights: "yolov8n.pt"

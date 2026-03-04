@@ -13,6 +13,12 @@ def apply_overrides(config: Dict[str, Any], args: argparse.Namespace) -> Dict[st
 
     if args.source is not None:
         cfg["source"]["input"] = args.source
+    if args.chunk_mode:
+        cfg["source"]["chunk_mode"] = True
+    if args.chunk_seconds is not None:
+        cfg["source"]["chunk_seconds"] = args.chunk_seconds
+    if args.chunk_queue_size is not None:
+        cfg["source"]["chunk_queue_size"] = args.chunk_queue_size
     if args.weights is not None:
         cfg["model"]["weights"] = args.weights
     if args.conf is not None:
@@ -52,6 +58,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="FlowTrack - Real-Time Traffic Monitoring")
     parser.add_argument("--config", type=str, default="configs/default.yaml", help="Path to YAML config")
     parser.add_argument("--source", type=str, help="Webcam index (e.g., 0) or stream URL")
+    parser.add_argument("--chunk-mode", action="store_true", help="Enable chunked source buffering")
+    parser.add_argument("--chunk-seconds", type=int, help="Chunk duration in seconds")
+    parser.add_argument("--chunk-queue-size", type=int, help="Number of queued chunks before dropping old ones")
 
     parser.add_argument("--weights", type=str, help="YOLO weights path")
     parser.add_argument("--conf", type=float, help="Confidence threshold")

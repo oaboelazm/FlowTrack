@@ -22,6 +22,7 @@ FlowTrack is a real-time traffic monitoring and analytics system built with YOLO
 - CSV persistence for metrics and crossing events
 - Live Streamlit dashboard
 - Live Gradio dashboard (recommended for Colab GPU sessions)
+- Optional chunked stream buffer mode (record fixed-length chunks, process/display sequentially, auto-delete played chunks)
 
 ## Project Structure
 - `src/ingestion` stream readers and reconnect handling
@@ -66,6 +67,11 @@ Gradio (recommended on Colab / GPU):
 ```bash
 python gradio_app.py
 ```
+
+Chunked buffering mode is available in both Streamlit and Gradio:
+- Enable `Chunked Stream Buffer Mode`
+- Set `Chunk Duration (seconds)` (for example `30`)
+- Set `Chunk Queue Size` (for example `2` or `3`)
 
 ## Colab Quick Deploy (GPU)
 Run these cells in Colab if you want the app up quickly:
