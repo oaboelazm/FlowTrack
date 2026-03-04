@@ -202,6 +202,7 @@ class FlowTrackPipeline:
                     user_agent=source_cfg.user_agent,
                     referer=source_cfg.referer,
                     chunk_seconds=float(source_settings.get("chunk_seconds", 30.0)),
+                    first_chunk_seconds=float(source_settings.get("first_chunk_seconds", 0.0)),
                     max_queue_size=int(source_settings.get("chunk_queue_size", 3)),
                     temp_dir=str(source_settings.get("chunk_tmp_dir", "outputs/chunks")),
                 )

@@ -12,6 +12,7 @@ source:
   referer: ""
   chunk_mode: true
   chunk_seconds: 12
+  first_chunk_seconds: 20
   chunk_queue_size: 3
   chunk_tmp_dir: "outputs/chunks"
   processed_chunk_dir: "outputs/processed_chunks"

@@ -40,6 +40,7 @@ def _build_cfg(
     target_fps: int,
     chunk_mode: bool,
     chunk_seconds: int,
+    first_chunk_seconds: int,
     chunk_queue_size: int,
     segment_playback_mode: bool,
 ) -> Dict:
@@ -47,6 +48,7 @@ def _build_cfg(
     cfg["source"]["input"] = str(source).strip()
     cfg["source"]["chunk_mode"] = bool(chunk_mode)
     cfg["source"]["chunk_seconds"] = int(chunk_seconds)
+    cfg["source"]["first_chunk_seconds"] = int(first_chunk_seconds)
     cfg["source"]["chunk_queue_size"] = int(chunk_queue_size)
     cfg["model"]["weights"] = str(weights).strip()
     cfg["model"]["device"] = "" if device == "auto" else str(device).strip()
@@ -105,6 +107,7 @@ def run_stream(
     target_fps: int,
     chunk_mode: bool,
     chunk_seconds: int,
+    first_chunk_seconds: int,
     chunk_queue_size: int,
     segment_playback_mode: bool,
 ) -> Iterator[Tuple]:
@@ -124,6 +127,7 @@ def run_stream(
         target_fps=target_fps,
         chunk_mode=chunk_mode,
         chunk_seconds=chunk_seconds,
+        first_chunk_seconds=first_chunk_seconds,
         chunk_queue_size=chunk_queue_size,
         segment_playback_mode=segment_playback_mode,
     )
@@ -180,13 +184,12 @@ def run_stream(
                         os.remove(stale)
 
                 events_df = pd.DataFrame(list(events)) if events else empty_events
-                yield None, chunk_output.video_path, metrics_df, events_df, status
+                yield chunk_output.video_path, metrics_df, events_df, status
             else:
                 output = runner.process_next()
                 if output is None:
                     continue
 
-                frame_rgb = cv2.cvtColor(output.frame_bgr, cv2.COLOR_BGR2RGB)
                 line_summary = runner.line_counter.summary()
                 metrics_df = pd.DataFrame([_metrics_row(output, line_summary)])
 
@@ -202,7 +205,7 @@ def run_stream(
                         )
 
                 events_df = pd.DataFrame(list(events)) if events else empty_events
-                yield frame_rgb, None, metrics_df, events_df, status
+                yield None, metrics_df, events_df, f"{status} | Segment Playback is OFF"
 
             elapsed = time.time() - loop_start
             sleep_time = max(0.0, (1.0 / max(1, int(target_fps))) - elapsed)
@@ -210,7 +213,7 @@ def run_stream(
                 time.sleep(sleep_time)
     except Exception as exc:
         error_df = pd.DataFrame([{"error": str(exc)}])
-        yield None, None, empty_metrics, empty_events, f"{status} | ERROR: {exc}"
+        yield None, empty_metrics, empty_events, f"{status} | ERROR: {exc}"
     finally:
         if runner is not None:
             runner.close()
@@ -243,6 +246,13 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
             with gr.Row():
                 chunk_mode = gr.Checkbox(label="Chunked Stream Buffer Mode", value=True)
                 chunk_seconds = gr.Slider(label="Chunk Duration (sec)", minimum=5, maximum=60, value=12, step=1)
+                first_chunk_seconds = gr.Slider(
+                    label="First Chunk Duration (sec)",
+                    minimum=5,
+                    maximum=90,
+                    value=20,
+                    step=1,
+                )
                 chunk_queue_size = gr.Slider(label="Chunk Queue Size", minimum=1, maximum=6, value=3, step=1)
             segment_playback_mode = gr.Checkbox(
                 label="Segment Playback Mode (Smooth video, requires chunk mode)",
@@ -256,11 +266,10 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
             stop_btn = gr.Button("Stop")
 
         with gr.Column(scale=3):
-            frame = gr.Image(label="Live Traffic View", type="numpy")
             segment_video = gr.Video(
                 label="Segment Playback (Smooth)",
                 autoplay=True,
-                loop=True,
+                loop=False,
                 height=540,
                 show_download_button=False,
                 show_share_button=False,
@@ -287,10 +296,11 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
             target_fps,
             chunk_mode,
             chunk_seconds,
+            first_chunk_seconds,
             chunk_queue_size,
             segment_playback_mode,
         ],
-        outputs=[frame, segment_video, metrics_table, events_table, status],
+        outputs=[segment_video, metrics_table, events_table, status],
     )
     stop_btn.click(fn=None, cancels=[stream_event])
 

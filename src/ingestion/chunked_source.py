@@ -20,6 +20,7 @@ class ChunkedSourceConfig:
     user_agent: str = ""
     referer: str = ""
     chunk_seconds: float = 30.0
+    first_chunk_seconds: float = 0.0
     max_queue_size: int = 3
     temp_dir: str = "outputs/chunks"
     writer_fps: float = 20.0
@@ -99,6 +100,11 @@ class ChunkedVideoSourceManager:
         chunk_path: Optional[Path] = None
         chunk_start: Optional[float] = None
         frames_written = 0
+        chunk_target_sec = (
+            float(self.cfg.first_chunk_seconds)
+            if float(self.cfg.first_chunk_seconds) > 0
+            else float(self.cfg.chunk_seconds)
+        )
 
         try:
             while not self._stop_event.is_set():
@@ -126,7 +132,7 @@ class ChunkedVideoSourceManager:
                 frames_written += 1
 
                 elapsed = time.monotonic() - (chunk_start or time.monotonic())
-                if elapsed >= max(1.0, float(self.cfg.chunk_seconds)):
+                if elapsed >= max(1.0, chunk_target_sec):
                     writer.release()
                     writer = None
                     if chunk_path is not None and frames_written > 0:
@@ -134,6 +140,7 @@ class ChunkedVideoSourceManager:
                     chunk_path = None
                     chunk_start = None
                     frames_written = 0
+                    chunk_target_sec = float(self.cfg.chunk_seconds)
         finally:
             if writer is not None:
                 writer.release()

@@ -74,9 +74,11 @@ Default runtime profile is now:
 - `Chunked Stream Buffer Mode = ON`
 - `Segment Playback Mode = ON`
 - `chunk_seconds = 12`
+- `first_chunk_seconds = 20`
 - `chunk_queue_size = 3`
 
 This profile avoids frame-by-frame flicker and gives smooth video-like playback of detected traffic segments.
+Video loop is disabled by default, and the player switches to the next processed segment as soon as it is ready.
 
 If `ffmpeg` is available, each processed chunk is converted to browser-friendly H.264 MP4 (`yuv420p`) before rendering.
 

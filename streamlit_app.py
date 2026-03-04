@@ -54,6 +54,13 @@ def build_config() -> dict:
         int(cfg["source"].get("chunk_seconds", 30)),
         1,
     )
+    first_chunk_seconds = st.sidebar.slider(
+        "First Chunk Duration (seconds)",
+        5,
+        90,
+        int(cfg["source"].get("first_chunk_seconds", 20)),
+        1,
+    )
     chunk_queue_size = st.sidebar.slider(
         "Chunk Queue Size",
         1,
@@ -90,6 +97,7 @@ def build_config() -> dict:
     cfg["source"]["input"] = str(source).strip()
     cfg["source"]["chunk_mode"] = bool(chunk_mode)
     cfg["source"]["chunk_seconds"] = int(chunk_seconds)
+    cfg["source"]["first_chunk_seconds"] = int(first_chunk_seconds)
     cfg["source"]["chunk_queue_size"] = int(chunk_queue_size)
     cfg["model"]["weights"] = weights
     cfg["model"]["conf"] = conf
@@ -177,7 +185,8 @@ def main() -> None:
         f"Live settings: tracking={cfg['tracking']['enabled']} | "
         f"imgsz={cfg['model']['imgsz']} | frame_skip={cfg['runtime']['frame_skip']} | "
         f"chunk_mode={cfg['source'].get('chunk_mode', False)} | "
-        f"chunk_seconds={cfg['source'].get('chunk_seconds', 30)}"
+        f"chunk_seconds={cfg['source'].get('chunk_seconds', 30)} | "
+        f"first_chunk_seconds={cfg['source'].get('first_chunk_seconds', 20)}"
     )
 
     frame_placeholder = st.empty()
