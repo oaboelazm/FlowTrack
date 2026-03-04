@@ -32,6 +32,7 @@ def _build_cfg(
     chunk_mode: bool,
     chunk_seconds: int,
     chunk_queue_size: int,
+    segment_playback_mode: bool,
 ) -> Dict:
     cfg = deepcopy(load_yaml("configs/default.yaml"))
     cfg["source"]["input"] = str(source).strip()
@@ -46,6 +47,7 @@ def _build_cfg(
     cfg["model"]["half"] = bool(half)
     cfg["tracking"]["enabled"] = bool(tracking_enabled)
     cfg["app"]["show_heatmap"] = bool(show_heatmap)
+    cfg["app"]["segment_playback_mode"] = bool(segment_playback_mode)
     cfg["app"]["display"] = False
     cfg["runtime"]["frame_skip"] = int(frame_skip)
     cfg["runtime"]["resize_width"] = int(resize_width)
@@ -95,6 +97,7 @@ def run_stream(
     chunk_mode: bool,
     chunk_seconds: int,
     chunk_queue_size: int,
+    segment_playback_mode: bool,
 ) -> Iterator[Tuple]:
     cfg = _build_cfg(
         source=source,
@@ -113,6 +116,7 @@ def run_stream(
         chunk_mode=chunk_mode,
         chunk_seconds=chunk_seconds,
         chunk_queue_size=chunk_queue_size,
+        segment_playback_mode=segment_playback_mode,
     )
 
     runner = None
@@ -122,6 +126,7 @@ def run_stream(
 
     empty_metrics = pd.DataFrame([{"fps": 0.0, "tracks_in_frame": 0}])
     empty_events = pd.DataFrame(columns=["time", "track_id", "class", "direction"])
+    recent_segment_videos: Deque[str] = deque()
 
     try:
         runner = FlowTrackPipeline(cfg)
@@ -129,27 +134,66 @@ def run_stream(
 
         while True:
             loop_start = time.time()
-            output = runner.process_next()
-            if output is None:
-                continue
+            if segment_playback_mode and chunk_mode:
+                chunk_output = runner.process_next_chunk()
+                if chunk_output is None:
+                    continue
 
-            frame_rgb = cv2.cvtColor(output.frame_bgr, cv2.COLOR_BGR2RGB)
-            line_summary = runner.line_counter.summary()
-            metrics_df = pd.DataFrame([_metrics_row(output, line_summary)])
-
-            if output.crossing_events:
-                for event in output.crossing_events:
-                    events.appendleft(
+                metrics_df = pd.DataFrame(
+                    [
                         {
-                            "time": time.strftime("%H:%M:%S", time.localtime(event.timestamp)),
-                            "track_id": str(event.track_id),
-                            "class": event.class_name,
-                            "direction": event.direction,
+                            "fps": round(float(chunk_output.fps), 2),
+                            "tracks_in_frame": int(sum(chunk_output.counts_per_frame.values())),
+                            "vehicles_per_min": round(float(chunk_output.metrics.get("vehicles_per_min", 0.0)), 2),
+                            "pedestrians_per_min": round(float(chunk_output.metrics.get("pedestrians_per_min", 0.0)), 2),
+                            "traffic_density": round(float(chunk_output.metrics.get("traffic_density", 0.0)), 4),
+                            "avg_speed_kmh": round(float(chunk_output.metrics.get("avg_speed_kmh", 0.0)), 2),
+                            "chunk_frames": int(chunk_output.total_frames),
                         }
-                    )
+                    ]
+                )
 
-            events_df = pd.DataFrame(list(events)) if events else empty_events
-            yield frame_rgb, metrics_df, events_df, status
+                if chunk_output.crossing_events:
+                    for event in chunk_output.crossing_events:
+                        events.appendleft(
+                            {
+                                "time": time.strftime("%H:%M:%S", time.localtime(event.timestamp)),
+                                "track_id": str(event.track_id),
+                                "class": event.class_name,
+                                "direction": event.direction,
+                            }
+                        )
+
+                recent_segment_videos.append(chunk_output.video_path)
+                while len(recent_segment_videos) > 4:
+                    stale = recent_segment_videos.popleft()
+                    if os.path.exists(stale):
+                        os.remove(stale)
+
+                events_df = pd.DataFrame(list(events)) if events else empty_events
+                yield None, chunk_output.video_path, metrics_df, events_df, status
+            else:
+                output = runner.process_next()
+                if output is None:
+                    continue
+
+                frame_rgb = cv2.cvtColor(output.frame_bgr, cv2.COLOR_BGR2RGB)
+                line_summary = runner.line_counter.summary()
+                metrics_df = pd.DataFrame([_metrics_row(output, line_summary)])
+
+                if output.crossing_events:
+                    for event in output.crossing_events:
+                        events.appendleft(
+                            {
+                                "time": time.strftime("%H:%M:%S", time.localtime(event.timestamp)),
+                                "track_id": str(event.track_id),
+                                "class": event.class_name,
+                                "direction": event.direction,
+                            }
+                        )
+
+                events_df = pd.DataFrame(list(events)) if events else empty_events
+                yield frame_rgb, None, metrics_df, events_df, status
 
             elapsed = time.time() - loop_start
             sleep_time = max(0.0, (1.0 / max(1, int(target_fps))) - elapsed)
@@ -157,7 +201,7 @@ def run_stream(
                 time.sleep(sleep_time)
     except Exception as exc:
         error_df = pd.DataFrame([{"error": str(exc)}])
-        yield None, empty_metrics, empty_events, f"{status} | ERROR: {exc}"
+        yield None, None, empty_metrics, empty_events, f"{status} | ERROR: {exc}"
     finally:
         if runner is not None:
             runner.close()
@@ -191,6 +235,10 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
                 chunk_mode = gr.Checkbox(label="Chunked Stream Buffer Mode", value=False)
                 chunk_seconds = gr.Slider(label="Chunk Duration (sec)", minimum=5, maximum=60, value=30, step=1)
                 chunk_queue_size = gr.Slider(label="Chunk Queue Size", minimum=1, maximum=6, value=3, step=1)
+            segment_playback_mode = gr.Checkbox(
+                label="Segment Playback Mode (Smooth video, requires chunk mode)",
+                value=False,
+            )
             with gr.Row():
                 resize_width = gr.Slider(label="Resize Width", minimum=640, maximum=1920, value=960, step=32)
                 resize_height = gr.Slider(label="Resize Height", minimum=360, maximum=1080, value=540, step=18)
@@ -200,6 +248,7 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
 
         with gr.Column(scale=3):
             frame = gr.Image(label="Live Traffic View", type="numpy")
+            segment_video = gr.Video(label="Segment Playback (Smooth)", autoplay=True)
             metrics_table = gr.Dataframe(label="Live Metrics", interactive=False)
             events_table = gr.Dataframe(label="Crossing Events", interactive=False)
             status = gr.Textbox(label="Runtime Status", interactive=False)
@@ -223,8 +272,9 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
             chunk_mode,
             chunk_seconds,
             chunk_queue_size,
+            segment_playback_mode,
         ],
-        outputs=[frame, metrics_table, events_table, status],
+        outputs=[frame, segment_video, metrics_table, events_table, status],
     )
     stop_btn.click(fn=None, cancels=[stream_event])
 

@@ -9,7 +9,7 @@ import cv2
 import torch
 
 from src.analytics.traffic_analytics import AnalyticsConfig, TrafficAnalytics
-from src.core.entities import CrossingEvent, PipelineOutput, TrackedObject
+from src.core.entities import ChunkPlaybackOutput, CrossingEvent, PipelineOutput, TrackedObject
 from src.detection.yolo_detector import DetectorConfig, YoloDetector
 from src.events.line_counter import LineCounter, LineCounterConfig
 from src.ingestion.chunked_source import ChunkedSourceConfig, ChunkedVideoSourceManager
@@ -175,6 +175,9 @@ class FlowTrackPipeline:
         self.display = bool(config.get("app", {}).get("display", True))
         self.print_counts = bool(config.get("app", {}).get("print_counts", False))
         self.show_heatmap = bool(config.get("app", {}).get("show_heatmap", False))
+        self.segment_playback_mode = bool(config.get("app", {}).get("segment_playback_mode", False))
+        self.processed_chunks_dir = Path(str(source_settings.get("processed_chunk_dir", "outputs/processed_chunks")))
+        self.processed_chunks_dir.mkdir(parents=True, exist_ok=True)
 
         self.frame_idx = 0
         self.fps = 0.0
@@ -219,6 +222,15 @@ class FlowTrackPipeline:
             counts[tr.class_name] = counts.get(tr.class_name, 0) + 1
         return counts
 
+    def _visualize_frame(self, frame, tracks: list[TrackedObject], counts: Dict[str, int], metrics: Dict[str, float]):
+        vis = frame
+        if self.show_heatmap:
+            vis = self.analytics.heatmap_overlay(vis)
+        vis = draw_tracks(vis, tracks)
+        vis = draw_line(vis, self.line_counter.cfg.p1, self.line_counter.cfg.p2)
+        vis = draw_dashboard(vis, self.fps, counts, self.line_counter.summary(), metrics)
+        return vis
+
     def process_next(self) -> Optional[PipelineOutput]:
         ok, frame = self.source.read()
         if not ok or frame is None:
@@ -245,12 +257,7 @@ class FlowTrackPipeline:
         crossing_events: list[CrossingEvent] = self.line_counter.update(tracks, now)
         metrics = self.analytics.update(tracks, crossing_events, frame.shape, now)
 
-        vis = frame
-        if self.show_heatmap:
-            vis = self.analytics.heatmap_overlay(vis)
-        vis = draw_tracks(vis, tracks)
-        vis = draw_line(vis, self.line_counter.cfg.p1, self.line_counter.cfg.p2)
-        vis = draw_dashboard(vis, self.fps, counts, self.line_counter.summary(), metrics)
+        vis = self._visualize_frame(frame, tracks, counts, metrics)
 
         if self.storage_enabled and (now - self.t_last_store >= self.storage_interval_sec):
             metrics_row: Dict[str, float] = {"timestamp": now, "fps": float(self.fps)}
@@ -270,6 +277,95 @@ class FlowTrackPipeline:
             counts_per_frame=counts,
             total_tracks_in_frame=len(tracks),
             crossing_events=crossing_events,
+            metrics=metrics,
+        )
+
+    def process_next_chunk(self) -> Optional[ChunkPlaybackOutput]:
+        if not self.chunk_mode:
+            return None
+        if not isinstance(self.source, ChunkedVideoSourceManager):
+            return None
+
+        chunk_path = self.source.pop_chunk(timeout_sec=1.0)
+        if chunk_path is None:
+            return None
+
+        cap = cv2.VideoCapture(str(chunk_path), cv2.CAP_FFMPEG)
+        if not cap.isOpened():
+            chunk_path.unlink(missing_ok=True)
+            return None
+
+        src_fps = float(cap.get(cv2.CAP_PROP_FPS))
+        out_fps = src_fps if src_fps > 1.0 else 20.0
+
+        out_path = self.processed_chunks_dir / f"{chunk_path.stem}_det.mp4"
+        writer = None
+
+        total_frames = 0
+        counts: Dict[str, int] = {}
+        metrics: Dict[str, float] = {}
+        crossing_events_all: list[CrossingEvent] = []
+        start_ts = time.time()
+
+        try:
+            while True:
+                ok, frame = cap.read()
+                if not ok or frame is None:
+                    break
+
+                frame = cv2.resize(frame, (self.runtime.resize_width, self.runtime.resize_height))
+                tracks = self._process_tracks(frame)
+                counts = self._counts_by_class(tracks)
+
+                now = time.time()
+                dt = max(now - self.t_prev, 1e-6)
+                self.fps = 0.9 * self.fps + 0.1 * (1.0 / dt) if self.fps > 0 else (1.0 / dt)
+                self.t_prev = now
+
+                crossing_events = self.line_counter.update(tracks, now)
+                crossing_events_all.extend(crossing_events)
+                metrics = self.analytics.update(tracks, crossing_events, frame.shape, now)
+
+                vis = self._visualize_frame(frame, tracks, counts, metrics)
+
+                if writer is None:
+                    h, w = vis.shape[:2]
+                    writer = cv2.VideoWriter(
+                        str(out_path),
+                        cv2.VideoWriter_fourcc(*"mp4v"),
+                        out_fps,
+                        (w, h),
+                    )
+                writer.write(vis)
+                total_frames += 1
+        finally:
+            cap.release()
+            if writer is not None:
+                writer.release()
+            chunk_path.unlink(missing_ok=True)
+
+        if total_frames == 0:
+            out_path.unlink(missing_ok=True)
+            return None
+
+        end_ts = time.time()
+        if self.storage_enabled and (end_ts - self.t_last_store >= self.storage_interval_sec):
+            metrics_row: Dict[str, float] = {"timestamp": end_ts, "fps": float(self.fps)}
+            metrics_row.update(metrics)
+            metrics_row["line_incoming"] = float(self.line_counter.summary().get("incoming", 0))
+            metrics_row["line_outgoing"] = float(self.line_counter.summary().get("outgoing", 0))
+            metrics_row["chunk_process_sec"] = float(end_ts - start_ts)
+            metrics_row["chunk_frames"] = float(total_frames)
+            self.csv.append_metrics(metrics_row)
+            self.csv.append_events(crossing_events_all)
+            self.t_last_store = end_ts
+
+        return ChunkPlaybackOutput(
+            video_path=str(out_path),
+            fps=self.fps,
+            total_frames=total_frames,
+            counts_per_frame=counts,
+            crossing_events=crossing_events_all,
             metrics=metrics,
         )
 

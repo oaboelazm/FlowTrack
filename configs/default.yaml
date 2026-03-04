@@ -3,6 +3,7 @@ app:
   display: true
   print_counts: false
   show_heatmap: false
+  segment_playback_mode: false
 
 source:
   input: "0"
@@ -13,6 +14,7 @@ source:
   chunk_seconds: 30
   chunk_queue_size: 3
   chunk_tmp_dir: "outputs/chunks"
+  processed_chunk_dir: "outputs/processed_chunks"
 
 model:
   weights: "yolov8n.pt"

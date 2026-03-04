@@ -165,6 +165,13 @@ class ChunkedVideoSourceManager:
         self._current_segment_path = path
         return True
 
+    def pop_chunk(self, timeout_sec: float = 0.8) -> Optional[Path]:
+        """
+        Pop next ready chunk path for external chunk-level processing.
+        Caller owns deletion of the returned file path.
+        """
+        return self._pop_segment(timeout_sec=timeout_sec)
+
     def _close_current_segment(self) -> None:
         if self._current_segment_cap is not None:
             self._current_segment_cap.release()

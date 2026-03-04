@@ -25,6 +25,10 @@ def init_state() -> None:
         st.session_state.events = []
     if "last_frame_rgb" not in st.session_state:
         st.session_state.last_frame_rgb = None
+    if "last_video_path" not in st.session_state:
+        st.session_state.last_video_path = None
+    if "recent_video_paths" not in st.session_state:
+        st.session_state.recent_video_paths = []
     if "last_metrics" not in st.session_state:
         st.session_state.last_metrics = {
             "fps": 0.0,
@@ -70,6 +74,10 @@ def build_config() -> dict:
 
     tracking_enabled = st.sidebar.checkbox("Enable Tracking (ByteTrack)", value=bool(cfg["tracking"].get("enabled", True)))
     show_heatmap = st.sidebar.checkbox("Show Heatmap", value=bool(cfg["app"].get("show_heatmap", False)))
+    segment_playback_mode = st.sidebar.checkbox(
+        "Segment Playback Mode (Smooth, requires chunk mode)",
+        value=bool(cfg["app"].get("segment_playback_mode", False)),
+    )
     smooth_mode = st.sidebar.checkbox("Smooth Stream Mode (Recommended)", value=True)
     refresh_ms = st.sidebar.slider("UI Refresh (ms)", 80, 500, int(cfg["app"].get("refresh_ms", 140)), 20)
 
@@ -91,6 +99,7 @@ def build_config() -> dict:
     cfg["model"]["device"] = device
     cfg["tracking"]["enabled"] = tracking_enabled
     cfg["app"]["show_heatmap"] = show_heatmap
+    cfg["app"]["segment_playback_mode"] = segment_playback_mode
     cfg["app"]["display"] = False
     cfg["app"]["refresh_ms"] = int(refresh_ms)
     cfg["line_counter"]["x1"] = int(x1)
@@ -178,50 +187,105 @@ def main() -> None:
     events_placeholder = st.empty()
 
     output = None
+    chunk_output = None
     should_rerun = False
     if st.session_state.running and st.session_state.runner is not None:
-        output = st.session_state.runner.process_next()
-        if output is not None:
-            frame_rgb = cv2.cvtColor(output.frame_bgr, cv2.COLOR_BGR2RGB)
-            st.session_state.last_frame_rgb = frame_rgb
+        if cfg["source"].get("chunk_mode", False) and cfg["app"].get("segment_playback_mode", False):
+            chunk_output = st.session_state.runner.process_next_chunk()
+            if chunk_output is not None:
+                st.session_state.last_video_path = chunk_output.video_path
+                st.session_state.recent_video_paths.append(chunk_output.video_path)
+                st.session_state.recent_video_paths = st.session_state.recent_video_paths[-4:]
 
-            line_in = st.session_state.runner.line_counter.summary().get("incoming", 0)
-            line_out = st.session_state.runner.line_counter.summary().get("outgoing", 0)
+                for old_path in st.session_state.recent_video_paths[:-2]:
+                    try:
+                        from pathlib import Path
 
-            st.session_state.last_metrics = {
-                "fps": float(output.fps),
-                "vehicles_per_min": float(output.metrics.get("vehicles_per_min", 0)),
-                "pedestrians_per_min": float(output.metrics.get("pedestrians_per_min", 0)),
-                "line_in": int(line_in),
-                "line_out": int(line_out),
-                "avg_speed_kmh": float(output.metrics.get("avg_speed_kmh", 0)),
-            }
+                        Path(old_path).unlink(missing_ok=True)
+                    except Exception:
+                        pass
 
-            row = {
-                "ts": time.time(),
-                "vehicles_per_min": output.metrics.get("vehicles_per_min", 0.0),
-                "pedestrians_per_min": output.metrics.get("pedestrians_per_min", 0.0),
-                "traffic_density": output.metrics.get("traffic_density", 0.0),
-                "avg_speed_kmh": output.metrics.get("avg_speed_kmh", 0.0),
-            }
-            st.session_state.history.append(row)
-            st.session_state.history = st.session_state.history[-300:]
+                line_in = st.session_state.runner.line_counter.summary().get("incoming", 0)
+                line_out = st.session_state.runner.line_counter.summary().get("outgoing", 0)
+                st.session_state.last_metrics = {
+                    "fps": float(chunk_output.fps),
+                    "vehicles_per_min": float(chunk_output.metrics.get("vehicles_per_min", 0)),
+                    "pedestrians_per_min": float(chunk_output.metrics.get("pedestrians_per_min", 0)),
+                    "line_in": int(line_in),
+                    "line_out": int(line_out),
+                    "avg_speed_kmh": float(chunk_output.metrics.get("avg_speed_kmh", 0)),
+                }
 
-            if output.crossing_events:
-                for ev in output.crossing_events:
-                    st.session_state.events.append(
-                        {
-                            "time": time.strftime("%H:%M:%S", time.localtime(ev.timestamp)),
-                            "track_id": ev.track_id,
-                            "class": ev.class_name,
-                            "direction": ev.direction,
-                        }
-                    )
-                st.session_state.events = st.session_state.events[-100:]
-        should_rerun = True
+                row = {
+                    "ts": time.time(),
+                    "vehicles_per_min": chunk_output.metrics.get("vehicles_per_min", 0.0),
+                    "pedestrians_per_min": chunk_output.metrics.get("pedestrians_per_min", 0.0),
+                    "traffic_density": chunk_output.metrics.get("traffic_density", 0.0),
+                    "avg_speed_kmh": chunk_output.metrics.get("avg_speed_kmh", 0.0),
+                }
+                st.session_state.history.append(row)
+                st.session_state.history = st.session_state.history[-300:]
+
+                if chunk_output.crossing_events:
+                    for ev in chunk_output.crossing_events:
+                        st.session_state.events.append(
+                            {
+                                "time": time.strftime("%H:%M:%S", time.localtime(ev.timestamp)),
+                                "track_id": ev.track_id,
+                                "class": ev.class_name,
+                                "direction": ev.direction,
+                            }
+                        )
+                    st.session_state.events = st.session_state.events[-100:]
+            should_rerun = True
+        else:
+            output = st.session_state.runner.process_next()
+            if output is not None:
+                frame_rgb = cv2.cvtColor(output.frame_bgr, cv2.COLOR_BGR2RGB)
+                st.session_state.last_frame_rgb = frame_rgb
+
+                line_in = st.session_state.runner.line_counter.summary().get("incoming", 0)
+                line_out = st.session_state.runner.line_counter.summary().get("outgoing", 0)
+
+                st.session_state.last_metrics = {
+                    "fps": float(output.fps),
+                    "vehicles_per_min": float(output.metrics.get("vehicles_per_min", 0)),
+                    "pedestrians_per_min": float(output.metrics.get("pedestrians_per_min", 0)),
+                    "line_in": int(line_in),
+                    "line_out": int(line_out),
+                    "avg_speed_kmh": float(output.metrics.get("avg_speed_kmh", 0)),
+                }
+
+                row = {
+                    "ts": time.time(),
+                    "vehicles_per_min": output.metrics.get("vehicles_per_min", 0.0),
+                    "pedestrians_per_min": output.metrics.get("pedestrians_per_min", 0.0),
+                    "traffic_density": output.metrics.get("traffic_density", 0.0),
+                    "avg_speed_kmh": output.metrics.get("avg_speed_kmh", 0.0),
+                }
+                st.session_state.history.append(row)
+                st.session_state.history = st.session_state.history[-300:]
+
+                if output.crossing_events:
+                    for ev in output.crossing_events:
+                        st.session_state.events.append(
+                            {
+                                "time": time.strftime("%H:%M:%S", time.localtime(ev.timestamp)),
+                                "track_id": ev.track_id,
+                                "class": ev.class_name,
+                                "direction": ev.direction,
+                            }
+                        )
+                    st.session_state.events = st.session_state.events[-100:]
+            should_rerun = True
 
     # Keep UI stable: always show the last good frame and last metrics.
-    if st.session_state.last_frame_rgb is not None:
+    if cfg["source"].get("chunk_mode", False) and cfg["app"].get("segment_playback_mode", False):
+        if st.session_state.last_video_path:
+            frame_placeholder.video(st.session_state.last_video_path)
+        else:
+            frame_placeholder.info("Waiting for first processed segment...")
+    elif st.session_state.last_frame_rgb is not None:
         frame_placeholder.image(
             st.session_state.last_frame_rgb,
             channels="RGB",
@@ -251,7 +315,10 @@ def main() -> None:
         events_placeholder.info("No crossing events yet.")
 
     if should_rerun:
-        time.sleep(float(cfg["app"].get("refresh_ms", 140)) / 1000.0)
+        delay_ms = float(cfg["app"].get("refresh_ms", 140))
+        if cfg["source"].get("chunk_mode", False) and cfg["app"].get("segment_playback_mode", False):
+            delay_ms = max(delay_ms, float(cfg["source"].get("chunk_seconds", 30)) * 400.0)
+        time.sleep(delay_ms / 1000.0)
         st.rerun()
 
 

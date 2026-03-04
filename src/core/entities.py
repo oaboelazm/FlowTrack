@@ -40,3 +40,13 @@ class PipelineOutput:
     total_tracks_in_frame: int
     crossing_events: List[CrossingEvent]
     metrics: Dict[str, float]
+
+
+@dataclass
+class ChunkPlaybackOutput:
+    video_path: str
+    fps: float
+    total_frames: int
+    counts_per_frame: Dict[str, int]
+    crossing_events: List[CrossingEvent]
+    metrics: Dict[str, float]

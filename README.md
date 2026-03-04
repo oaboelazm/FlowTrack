@@ -72,6 +72,9 @@ Chunked buffering mode is available in both Streamlit and Gradio:
 - Enable `Chunked Stream Buffer Mode`
 - Set `Chunk Duration (seconds)` (for example `30`)
 - Set `Chunk Queue Size` (for example `2` or `3`)
+- For smoother playback (YouTube-like), also enable `Segment Playback Mode`.
+  - This renders each chunk to an annotated MP4 and plays it as a video segment.
+  - Recommended values for low-latency smoothness: `chunk_seconds=8..15`, `queue_size=2`.
 
 ## Colab Quick Deploy (GPU)
 Run these cells in Colab if you want the app up quickly:
