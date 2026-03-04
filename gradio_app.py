@@ -26,6 +26,7 @@ warnings.filterwarnings(
 
 def _build_cfg(
     source: str,
+    det_classes: str,
     weights: str,
     device: str,
     conf: float,
@@ -45,6 +46,15 @@ def _build_cfg(
     processed_chunk_reuse: bool,
     processed_chunk_slots: int,
     segment_playback_mode: bool,
+    line_x1: int,
+    line_y1: int,
+    line_x2: int,
+    line_y2: int,
+    seg_enabled: bool,
+    seg_weights: str,
+    seg_classes: str,
+    seg_conf: float,
+    seg_iou: float,
 ) -> Dict:
     cfg = deepcopy(load_yaml("configs/default.yaml"))
     cfg["source"]["input"] = str(source).strip()
@@ -54,6 +64,7 @@ def _build_cfg(
     cfg["source"]["chunk_queue_size"] = int(chunk_queue_size)
     cfg["source"]["processed_chunk_reuse"] = bool(processed_chunk_reuse)
     cfg["source"]["processed_chunk_slots"] = int(processed_chunk_slots)
+    cfg["classes"]["include"] = [c.strip() for c in str(det_classes).split(",") if c.strip()]
     cfg["model"]["weights"] = str(weights).strip()
     cfg["model"]["device"] = "" if device == "auto" else str(device).strip()
     cfg["model"]["conf"] = float(conf)
@@ -63,6 +74,17 @@ def _build_cfg(
     cfg["tracking"]["enabled"] = bool(tracking_enabled)
     cfg["app"]["show_heatmap"] = bool(show_heatmap)
     cfg["app"]["segment_playback_mode"] = bool(segment_playback_mode)
+    cfg["line_counter"]["x1"] = int(line_x1)
+    cfg["line_counter"]["y1"] = int(line_y1)
+    cfg["line_counter"]["x2"] = int(line_x2)
+    cfg["line_counter"]["y2"] = int(line_y2)
+    cfg["segmentation"]["enabled"] = bool(seg_enabled)
+    cfg["segmentation"]["weights"] = str(seg_weights).strip()
+    cfg["segmentation"]["include_classes"] = [c.strip() for c in str(seg_classes).split(",") if c.strip()]
+    cfg["segmentation"]["conf"] = float(seg_conf)
+    cfg["segmentation"]["iou"] = float(seg_iou)
+    cfg["segmentation"]["imgsz"] = int(imgsz)
+    cfg["segmentation"]["half"] = bool(half)
     cfg["app"]["display"] = False
     cfg["runtime"]["frame_skip"] = int(frame_skip)
     cfg["runtime"]["resize_width"] = int(resize_width)
@@ -97,6 +119,7 @@ def _status_text(selected_device: str) -> str:
 
 def run_stream(
     source: str,
+    det_classes: str,
     weights: str,
     device: str,
     conf: float,
@@ -116,9 +139,19 @@ def run_stream(
     processed_chunk_reuse: bool,
     processed_chunk_slots: int,
     segment_playback_mode: bool,
+    line_x1: int,
+    line_y1: int,
+    line_x2: int,
+    line_y2: int,
+    seg_enabled: bool,
+    seg_weights: str,
+    seg_classes: str,
+    seg_conf: float,
+    seg_iou: float,
 ) -> Iterator[Tuple]:
     cfg = _build_cfg(
         source=source,
+        det_classes=det_classes,
         weights=weights,
         device=device,
         conf=conf,
@@ -138,6 +171,15 @@ def run_stream(
         processed_chunk_reuse=processed_chunk_reuse,
         processed_chunk_slots=processed_chunk_slots,
         segment_playback_mode=segment_playback_mode,
+        line_x1=line_x1,
+        line_y1=line_y1,
+        line_x2=line_x2,
+        line_y2=line_y2,
+        seg_enabled=seg_enabled,
+        seg_weights=seg_weights,
+        seg_classes=seg_classes,
+        seg_conf=seg_conf,
+        seg_iou=seg_iou,
     )
 
     runner = None
@@ -238,6 +280,10 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
     with gr.Row():
         with gr.Column(scale=2):
             source = gr.Textbox(label="Source (0 / RTSP / HLS URL)", value="0")
+            det_classes = gr.Textbox(
+                label="Detection Classes (comma-separated)",
+                value="person, bicycle, car, motorcycle, bus, truck",
+            )
             weights = gr.Textbox(label="Weights", value="yolov8n.pt")
             device = gr.Dropdown(label="Device", choices=["auto", "cuda:0", "cpu"], value="auto")
             with gr.Row():
@@ -249,6 +295,13 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
             with gr.Row():
                 tracking_enabled = gr.Checkbox(label="Enable ByteTrack", value=True)
                 show_heatmap = gr.Checkbox(label="Show Heatmap", value=False)
+            with gr.Row():
+                seg_enabled = gr.Checkbox(label="Enable Segmentation", value=False)
+                seg_weights = gr.Textbox(label="Segmentation Weights", value="yolov8n-seg.pt")
+            with gr.Row():
+                seg_classes = gr.Textbox(label="Segmentation Classes", value="person, car, bus, truck")
+                seg_conf = gr.Slider(label="Seg Confidence", minimum=0.1, maximum=0.9, value=0.35, step=0.01)
+                seg_iou = gr.Slider(label="Seg IoU", minimum=0.1, maximum=0.9, value=0.45, step=0.01)
             with gr.Row():
                 frame_skip = gr.Slider(label="Frame Skip", minimum=0, maximum=6, value=1, step=1)
                 target_fps = gr.Slider(label="UI Target FPS", minimum=2, maximum=20, value=8, step=1)
@@ -270,6 +323,11 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
                 label="Segment Playback Mode (Smooth video, requires chunk mode)",
                 value=True,
             )
+            with gr.Row():
+                line_x1 = gr.Slider(label="Line x1", minimum=0, maximum=4000, value=100, step=1)
+                line_y1 = gr.Slider(label="Line y1", minimum=0, maximum=4000, value=360, step=1)
+                line_x2 = gr.Slider(label="Line x2", minimum=0, maximum=4000, value=1180, step=1)
+                line_y2 = gr.Slider(label="Line y2", minimum=0, maximum=4000, value=360, step=1)
             with gr.Row():
                 resize_width = gr.Slider(label="Resize Width", minimum=640, maximum=1920, value=960, step=32)
                 resize_height = gr.Slider(label="Resize Height", minimum=360, maximum=1080, value=540, step=18)
@@ -294,6 +352,7 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
         fn=run_stream,
         inputs=[
             source,
+            det_classes,
             weights,
             device,
             conf,
@@ -313,6 +372,15 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
             processed_chunk_reuse,
             processed_chunk_slots,
             segment_playback_mode,
+            line_x1,
+            line_y1,
+            line_x2,
+            line_y2,
+            seg_enabled,
+            seg_weights,
+            seg_classes,
+            seg_conf,
+            seg_iou,
         ],
         outputs=[segment_video, metrics_table, events_table, status],
     )

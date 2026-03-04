@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 import cv2
 import numpy as np
 
-from src.core.entities import TrackedObject
+from src.core.entities import SegmentationMask, TrackedObject
 
 
 COLOR_MAP = {
@@ -33,6 +33,27 @@ def draw_tracks(frame: np.ndarray, tracks: List[TrackedObject]) -> np.ndarray:
         top = max(0, y1 - th - 6)
         cv2.rectangle(canvas, (x1, top), (x1 + tw + 6, y1), color, -1)
         cv2.putText(canvas, label, (x1 + 3, y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, cv2.LINE_AA)
+    return canvas
+
+
+def draw_segmentations(frame: np.ndarray, masks: List[SegmentationMask], alpha: float = 0.35) -> np.ndarray:
+    if not masks:
+        return frame
+
+    canvas = frame.copy()
+    overlay = frame.copy()
+
+    for item in masks:
+        color = COLOR_MAP.get(item.class_name, (200, 200, 200))
+        poly = item.polygon_xy.reshape((-1, 1, 2))
+        cv2.fillPoly(overlay, [poly], color)
+        cv2.polylines(canvas, [poly], isClosed=True, color=color, thickness=2)
+
+        x, y = int(item.polygon_xy[0][0]), int(item.polygon_xy[0][1])
+        label = f"{item.class_name} seg {item.confidence:.2f}"
+        cv2.putText(canvas, label, (x, max(12, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, cv2.LINE_AA)
+
+    cv2.addWeighted(overlay, alpha, canvas, 1 - alpha, 0, canvas)
     return canvas
 
 

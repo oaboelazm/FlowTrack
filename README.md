@@ -116,6 +116,19 @@ Quick training scripts:
 ./scripts/train_eval_export.sh runs/detect/runs/flowtrack/visdrone_smoke5/weights/best.pt
 ```
 
+Use any Ultralytics YOLO generation by changing `model` in `configs/training/train_bdd100k.yaml`:
+```yaml
+model: yolov8n.pt
+```
+Examples:
+- `model: yolo11n.pt`
+- `model: yolo26n.pt` (if supported in your installed Ultralytics version)
+
+Then train:
+```bash
+python scripts/training/train_yolo.py --train-config configs/training/train_bdd100k.yaml
+```
+
 BDD100K conversion/training workflow:
 - `docs/TRAINING.md`
 - `scripts/training/prepare_bdd100k.py`

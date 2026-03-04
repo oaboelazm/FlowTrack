@@ -11,15 +11,16 @@ import cv2
 import torch
 
 from src.analytics.traffic_analytics import AnalyticsConfig, TrafficAnalytics
-from src.core.entities import ChunkPlaybackOutput, CrossingEvent, PipelineOutput, TrackedObject
+from src.core.entities import ChunkPlaybackOutput, CrossingEvent, PipelineOutput, SegmentationMask, TrackedObject
 from src.detection.yolo_detector import DetectorConfig, YoloDetector
 from src.events.line_counter import LineCounter, LineCounterConfig
 from src.ingestion.chunked_source import ChunkedSourceConfig, ChunkedVideoSourceManager
 from src.ingestion.source_manager import SourceConfig, VideoSourceManager
+from src.segmentation.yolo_segmenter import SegmenterConfig, YoloSegmenter
 from src.storage.csv_writer import CsvWriter
 from src.tracking.bytetrack_tracker import ByteTrackConfig, ByteTrackTracker
 from src.utils.logger import setup_logger
-from src.visualization.overlay import draw_dashboard, draw_line, draw_tracks
+from src.visualization.overlay import draw_dashboard, draw_line, draw_segmentations, draw_tracks
 
 
 @dataclass
@@ -30,6 +31,16 @@ class RuntimeConfig:
 
 
 class FlowTrackPipeline:
+    @staticmethod
+    def _parse_include_classes(raw: Any) -> list[str]:
+        if raw is None:
+            return []
+        if isinstance(raw, str):
+            return [c.strip() for c in raw.split(",") if c.strip()]
+        if isinstance(raw, (list, tuple, set)):
+            return [str(c).strip() for c in raw if str(c).strip()]
+        return []
+
     @staticmethod
     def _ensure_browser_video(video_path: Path, target_path: Optional[Path] = None) -> Path:
         """
@@ -130,7 +141,7 @@ class FlowTrackPipeline:
             resize_height=int(config["runtime"].get("resize_height", 720)),
         )
 
-        include_classes = list(config.get("classes", {}).get("include", []))
+        include_classes = self._parse_include_classes(config.get("classes", {}).get("include", []))
         model_cfg = config.get("model", {})
         resolved_weights = self._resolve_weights(model_cfg, self.log)
         resolved_device = self._resolve_device(model_cfg, self.log)
@@ -164,6 +175,28 @@ class FlowTrackPipeline:
         else:
             self.detector = YoloDetector(self._detector_cfg)
             self.tracker = None
+
+        segmentation_cfg = config.get("segmentation", {})
+        self.segmentation_enabled = bool(segmentation_cfg.get("enabled", False))
+        if self.segmentation_enabled:
+            seg_include_classes = self._parse_include_classes(
+                segmentation_cfg.get("include_classes", include_classes)
+            )
+            seg_weights = str(segmentation_cfg.get("weights", model_cfg.get("weights", "yolov8n-seg.pt")))
+            self.segmenter = YoloSegmenter(
+                SegmenterConfig(
+                    weights=seg_weights,
+                    device=resolved_device,
+                    conf=float(segmentation_cfg.get("conf", model_cfg.get("conf", 0.35))),
+                    iou=float(segmentation_cfg.get("iou", model_cfg.get("iou", 0.45))),
+                    imgsz=int(segmentation_cfg.get("imgsz", model_cfg.get("imgsz", 960))),
+                    half=bool(segmentation_cfg.get("half", model_cfg.get("half", False))),
+                    max_det=int(segmentation_cfg.get("max_det", model_cfg.get("max_det", 300))),
+                    include_classes=seg_include_classes,
+                )
+            )
+        else:
+            self.segmenter = None
 
         line_cfg = config.get("line_counter", {})
         self.line_counter = LineCounter(
@@ -272,10 +305,28 @@ class FlowTrackPipeline:
             counts[tr.class_name] = counts.get(tr.class_name, 0) + 1
         return counts
 
-    def _visualize_frame(self, frame, tracks: list[TrackedObject], counts: Dict[str, int], metrics: Dict[str, float]):
+    def _process_segmentations(self, frame) -> list[SegmentationMask]:
+        if self.segmenter is None:
+            return []
+        try:
+            return self.segmenter.infer(frame)
+        except Exception as e:
+            self.log.warning("Segmentation inference failed: %s", e)
+            return []
+
+    def _visualize_frame(
+        self,
+        frame,
+        tracks: list[TrackedObject],
+        seg_masks: list[SegmentationMask],
+        counts: Dict[str, int],
+        metrics: Dict[str, float],
+    ):
         vis = frame
         if self.show_heatmap:
             vis = self.analytics.heatmap_overlay(vis)
+        if seg_masks:
+            vis = draw_segmentations(vis, seg_masks)
         vis = draw_tracks(vis, tracks)
         vis = draw_line(vis, self.line_counter.cfg.p1, self.line_counter.cfg.p2)
         vis = draw_dashboard(vis, self.fps, counts, self.line_counter.summary(), metrics)
@@ -297,6 +348,7 @@ class FlowTrackPipeline:
 
         frame = cv2.resize(frame, (self.runtime.resize_width, self.runtime.resize_height))
         tracks = self._process_tracks(frame)
+        seg_masks = self._process_segmentations(frame)
         counts = self._counts_by_class(tracks)
 
         now = time.time()
@@ -307,7 +359,7 @@ class FlowTrackPipeline:
         crossing_events: list[CrossingEvent] = self.line_counter.update(tracks, now)
         metrics = self.analytics.update(tracks, crossing_events, frame.shape, now)
 
-        vis = self._visualize_frame(frame, tracks, counts, metrics)
+        vis = self._visualize_frame(frame, tracks, seg_masks, counts, metrics)
 
         if self.storage_enabled and (now - self.t_last_store >= self.storage_interval_sec):
             metrics_row: Dict[str, float] = {"timestamp": now, "fps": float(self.fps)}
@@ -371,6 +423,7 @@ class FlowTrackPipeline:
 
                 frame = cv2.resize(frame, (self.runtime.resize_width, self.runtime.resize_height))
                 tracks = self._process_tracks(frame)
+                seg_masks = self._process_segmentations(frame)
                 counts = self._counts_by_class(tracks)
 
                 now = time.time()
@@ -382,7 +435,7 @@ class FlowTrackPipeline:
                 crossing_events_all.extend(crossing_events)
                 metrics = self.analytics.update(tracks, crossing_events, frame.shape, now)
 
-                vis = self._visualize_frame(frame, tracks, counts, metrics)
+                vis = self._visualize_frame(frame, tracks, seg_masks, counts, metrics)
 
                 if writer is None:
                     h, w = vis.shape[:2]

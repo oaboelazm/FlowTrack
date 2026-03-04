@@ -46,6 +46,10 @@ def build_config() -> dict:
 
     st.sidebar.header("FlowTrack Controls")
     source = st.sidebar.text_input("Camera Source", value=str(cfg["source"].get("input", "0")))
+    det_classes_raw = st.sidebar.text_input(
+        "Detection Classes (comma-separated)",
+        value=", ".join(cfg.get("classes", {}).get("include", [])),
+    )
     chunk_mode = st.sidebar.checkbox("Chunked Stream Buffer Mode", value=bool(cfg["source"].get("chunk_mode", False)))
     chunk_seconds = st.sidebar.slider(
         "Chunk Duration (seconds)",
@@ -92,6 +96,17 @@ def build_config() -> dict:
 
     tracking_enabled = st.sidebar.checkbox("Enable Tracking (ByteTrack)", value=bool(cfg["tracking"].get("enabled", True)))
     show_heatmap = st.sidebar.checkbox("Show Heatmap", value=bool(cfg["app"].get("show_heatmap", False)))
+    seg_enabled = st.sidebar.checkbox("Enable Segmentation", value=bool(cfg.get("segmentation", {}).get("enabled", False)))
+    seg_weights = st.sidebar.text_input(
+        "Segmentation Weights",
+        value=str(cfg.get("segmentation", {}).get("weights", "yolov8n-seg.pt")),
+    )
+    seg_classes_raw = st.sidebar.text_input(
+        "Segmentation Classes (comma-separated)",
+        value=", ".join(cfg.get("segmentation", {}).get("include_classes", ["person", "car"])),
+    )
+    seg_conf = st.sidebar.slider("Segmentation Confidence", 0.1, 0.9, float(cfg.get("segmentation", {}).get("conf", 0.35)), 0.01)
+    seg_iou = st.sidebar.slider("Segmentation IoU", 0.1, 0.9, float(cfg.get("segmentation", {}).get("iou", 0.45)), 0.01)
     segment_playback_mode = st.sidebar.checkbox(
         "Segment Playback Mode (Smooth, requires chunk mode)",
         value=bool(cfg["app"].get("segment_playback_mode", False)),
@@ -112,6 +127,7 @@ def build_config() -> dict:
     cfg["source"]["chunk_queue_size"] = int(chunk_queue_size)
     cfg["source"]["processed_chunk_reuse"] = bool(processed_chunk_reuse)
     cfg["source"]["processed_chunk_slots"] = int(processed_chunk_slots)
+    cfg["classes"]["include"] = [c.strip() for c in str(det_classes_raw).split(",") if c.strip()]
     cfg["model"]["weights"] = weights
     cfg["model"]["conf"] = conf
     cfg["model"]["iou"] = iou
@@ -120,6 +136,13 @@ def build_config() -> dict:
     cfg["model"]["device"] = device
     cfg["tracking"]["enabled"] = tracking_enabled
     cfg["app"]["show_heatmap"] = show_heatmap
+    cfg["segmentation"]["enabled"] = bool(seg_enabled)
+    cfg["segmentation"]["weights"] = str(seg_weights).strip()
+    cfg["segmentation"]["include_classes"] = [c.strip() for c in str(seg_classes_raw).split(",") if c.strip()]
+    cfg["segmentation"]["conf"] = float(seg_conf)
+    cfg["segmentation"]["iou"] = float(seg_iou)
+    cfg["segmentation"]["imgsz"] = int(imgsz)
+    cfg["segmentation"]["half"] = bool(use_half)
     cfg["app"]["segment_playback_mode"] = segment_playback_mode
     cfg["app"]["display"] = False
     cfg["app"]["refresh_ms"] = int(refresh_ms)
@@ -196,6 +219,7 @@ def main() -> None:
     c3.caption("Phase 1-5: detection, tracking, line counting, analytics, congestion/stop alerts, heatmap")
     st.caption(
         f"Live settings: tracking={cfg['tracking']['enabled']} | "
+        f"segmentation={cfg.get('segmentation', {}).get('enabled', False)} | "
         f"imgsz={cfg['model']['imgsz']} | frame_skip={cfg['runtime']['frame_skip']} | "
         f"chunk_mode={cfg['source'].get('chunk_mode', False)} | "
         f"chunk_seconds={cfg['source'].get('chunk_seconds', 30)} | "

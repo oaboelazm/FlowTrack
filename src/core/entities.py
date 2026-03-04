@@ -50,3 +50,11 @@ class ChunkPlaybackOutput:
     counts_per_frame: Dict[str, int]
     crossing_events: List[CrossingEvent]
     metrics: Dict[str, float]
+
+
+@dataclass
+class SegmentationMask:
+    class_id: int
+    class_name: str
+    confidence: float
+    polygon_xy: np.ndarray

@@ -37,6 +37,20 @@ classes:
     - bus
     - truck
 
+segmentation:
+  enabled: false
+  weights: "yolov8n-seg.pt"
+  conf: 0.35
+  iou: 0.45
+  imgsz: 960
+  half: false
+  max_det: 200
+  include_classes:
+    - person
+    - car
+    - bus
+    - truck
+
 tracking:
   enabled: true
   tracker: "bytetrack.yaml"
