@@ -5,6 +5,7 @@ from collections import deque
 from copy import deepcopy
 import os
 from typing import Deque, Dict, Iterator, List, Tuple
+import warnings
 
 import cv2
 import gradio as gr
@@ -13,6 +14,14 @@ import torch
 
 from src.app.pipeline import FlowTrackPipeline
 from src.utils.config import load_yaml
+
+# Gradio warns when input video is not browser-compatible.
+# Pipeline tries to generate browser-friendly MP4, so this warning is noisy.
+warnings.filterwarnings(
+    "ignore",
+    message="Video does not have browser-compatible container or codec. Converting to mp4.",
+    category=UserWarning,
+)
 
 
 def _build_cfg(
@@ -232,12 +241,12 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
                 frame_skip = gr.Slider(label="Frame Skip", minimum=0, maximum=6, value=1, step=1)
                 target_fps = gr.Slider(label="UI Target FPS", minimum=2, maximum=20, value=8, step=1)
             with gr.Row():
-                chunk_mode = gr.Checkbox(label="Chunked Stream Buffer Mode", value=False)
-                chunk_seconds = gr.Slider(label="Chunk Duration (sec)", minimum=5, maximum=60, value=30, step=1)
+                chunk_mode = gr.Checkbox(label="Chunked Stream Buffer Mode", value=True)
+                chunk_seconds = gr.Slider(label="Chunk Duration (sec)", minimum=5, maximum=60, value=12, step=1)
                 chunk_queue_size = gr.Slider(label="Chunk Queue Size", minimum=1, maximum=6, value=3, step=1)
             segment_playback_mode = gr.Checkbox(
                 label="Segment Playback Mode (Smooth video, requires chunk mode)",
-                value=False,
+                value=True,
             )
             with gr.Row():
                 resize_width = gr.Slider(label="Resize Width", minimum=640, maximum=1920, value=960, step=32)
@@ -248,7 +257,14 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
 
         with gr.Column(scale=3):
             frame = gr.Image(label="Live Traffic View", type="numpy")
-            segment_video = gr.Video(label="Segment Playback (Smooth)", autoplay=True)
+            segment_video = gr.Video(
+                label="Segment Playback (Smooth)",
+                autoplay=True,
+                loop=True,
+                height=540,
+                show_download_button=False,
+                show_share_button=False,
+            )
             metrics_table = gr.Dataframe(label="Live Metrics", interactive=False)
             events_table = gr.Dataframe(label="Crossing Events", interactive=False)
             status = gr.Textbox(label="Runtime Status", interactive=False)

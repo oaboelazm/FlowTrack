@@ -3,15 +3,15 @@ app:
   display: true
   print_counts: false
   show_heatmap: false
-  segment_playback_mode: false
+  segment_playback_mode: true
 
 source:
   input: "0"
   reconnect_delay_sec: 2.0
   user_agent: ""
   referer: ""
-  chunk_mode: false
-  chunk_seconds: 30
+  chunk_mode: true
+  chunk_seconds: 12
   chunk_queue_size: 3
   chunk_tmp_dir: "outputs/chunks"
   processed_chunk_dir: "outputs/processed_chunks"

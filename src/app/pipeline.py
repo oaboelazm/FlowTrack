@@ -3,6 +3,8 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from pathlib import Path
+import shutil
+import subprocess
 from typing import Any, Dict, Optional, Tuple
 
 import cv2
@@ -28,6 +30,42 @@ class RuntimeConfig:
 
 
 class FlowTrackPipeline:
+    @staticmethod
+    def _ensure_browser_video(video_path: Path) -> Path:
+        """
+        Convert generated clip to browser-friendly MP4 (H.264 + yuv420p) when ffmpeg exists.
+        Falls back to original file if conversion fails.
+        """
+        ffmpeg = shutil.which("ffmpeg")
+        if ffmpeg is None:
+            return video_path
+
+        converted = video_path.with_name(f"{video_path.stem}_web.mp4")
+        cmd = [
+            ffmpeg,
+            "-y",
+            "-loglevel",
+            "error",
+            "-i",
+            str(video_path),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
+            "-movflags",
+            "+faststart",
+            str(converted),
+        ]
+        try:
+            subprocess.run(cmd, check=True)
+            video_path.unlink(missing_ok=True)
+            return converted
+        except Exception:
+            converted.unlink(missing_ok=True)
+            return video_path
+
     @staticmethod
     def _resolve_weights(model_cfg: Dict[str, Any], logger) -> str:
         requested = str(model_cfg.get("weights", "yolov8n.pt")).strip()
@@ -360,8 +398,10 @@ class FlowTrackPipeline:
             self.csv.append_events(crossing_events_all)
             self.t_last_store = end_ts
 
+        out_web_path = self._ensure_browser_video(out_path)
+
         return ChunkPlaybackOutput(
-            video_path=str(out_path),
+            video_path=str(out_web_path),
             fps=self.fps,
             total_frames=total_frames,
             counts_per_frame=counts,
