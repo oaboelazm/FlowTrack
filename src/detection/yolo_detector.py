@@ -20,6 +20,7 @@ class DetectorConfig:
     half: bool
     max_det: int
     include_classes: List[str]
+    strict_classes: bool = True
 
 
 class YoloDetector:
@@ -29,6 +30,9 @@ class YoloDetector:
         self.include_classes: Set[str] = {canonical_class_name(c) for c in cfg.include_classes}
 
     def infer(self, frame: np.ndarray) -> List[Detection]:
+        if self.strict_classes and not self.include_classes:
+            return []
+
         results = self.model.predict(
             source=frame,
             conf=self.cfg.conf,

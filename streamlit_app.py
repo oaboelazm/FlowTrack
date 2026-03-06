@@ -46,9 +46,13 @@ def build_config() -> dict:
 
     st.sidebar.header("FlowTrack Controls")
     source = st.sidebar.text_input("Camera Source", value=str(cfg["source"].get("input", "0")))
+    detection_enabled = st.sidebar.checkbox(
+        "Enable Detection",
+        value=bool(cfg.get("detection", {}).get("enabled", True)),
+    )
     det_classes_raw = st.sidebar.text_input(
         "Detection Classes (comma-separated)",
-        value=", ".join(cfg.get("classes", {}).get("include", [])),
+        value=", ".join(cfg.get("detection", {}).get("include_classes", cfg.get("classes", {}).get("include", []))),
     )
     chunk_mode = st.sidebar.checkbox("Chunked Stream Buffer Mode", value=bool(cfg["source"].get("chunk_mode", False)))
     chunk_seconds = st.sidebar.slider(
@@ -94,7 +98,11 @@ def build_config() -> dict:
     imgsz = st.sidebar.selectbox("Image Size", [640, 800, 960, 1280], index=2)
     use_half = st.sidebar.checkbox("FP16 (Half)", value=bool(cfg["model"].get("half", False)))
 
-    tracking_enabled = st.sidebar.checkbox("Enable Tracking (ByteTrack)", value=bool(cfg["tracking"].get("enabled", True)))
+    tracking_enabled = st.sidebar.checkbox(
+        "Enable Tracking (ByteTrack)",
+        value=bool(cfg["tracking"].get("enabled", True)),
+        disabled=not detection_enabled,
+    )
     show_heatmap = st.sidebar.checkbox("Show Heatmap", value=bool(cfg["app"].get("show_heatmap", False)))
     seg_enabled = st.sidebar.checkbox("Enable Segmentation", value=bool(cfg.get("segmentation", {}).get("enabled", False)))
     seg_weights = st.sidebar.text_input(
@@ -127,7 +135,11 @@ def build_config() -> dict:
     cfg["source"]["chunk_queue_size"] = int(chunk_queue_size)
     cfg["source"]["processed_chunk_reuse"] = bool(processed_chunk_reuse)
     cfg["source"]["processed_chunk_slots"] = int(processed_chunk_slots)
-    cfg["classes"]["include"] = [c.strip() for c in str(det_classes_raw).split(",") if c.strip()]
+    det_classes = [c.strip() for c in str(det_classes_raw).split(",") if c.strip()]
+    cfg["classes"]["include"] = det_classes
+    cfg["detection"]["enabled"] = bool(detection_enabled)
+    cfg["detection"]["strict_classes"] = True
+    cfg["detection"]["include_classes"] = det_classes
     cfg["model"]["weights"] = weights
     cfg["model"]["conf"] = conf
     cfg["model"]["iou"] = iou
@@ -139,6 +151,7 @@ def build_config() -> dict:
     cfg["segmentation"]["enabled"] = bool(seg_enabled)
     cfg["segmentation"]["weights"] = str(seg_weights).strip()
     cfg["segmentation"]["include_classes"] = [c.strip() for c in str(seg_classes_raw).split(",") if c.strip()]
+    cfg["segmentation"]["strict_classes"] = True
     cfg["segmentation"]["conf"] = float(seg_conf)
     cfg["segmentation"]["iou"] = float(seg_iou)
     cfg["segmentation"]["imgsz"] = int(imgsz)
@@ -218,7 +231,8 @@ def main() -> None:
         stop_runner()
     c3.caption("Phase 1-5: detection, tracking, line counting, analytics, congestion/stop alerts, heatmap")
     st.caption(
-        f"Live settings: tracking={cfg['tracking']['enabled']} | "
+        f"Live settings: detection={cfg.get('detection', {}).get('enabled', True)} | "
+        f"tracking={cfg['tracking']['enabled']} | "
         f"segmentation={cfg.get('segmentation', {}).get('enabled', False)} | "
         f"imgsz={cfg['model']['imgsz']} | frame_skip={cfg['runtime']['frame_skip']} | "
         f"chunk_mode={cfg['source'].get('chunk_mode', False)} | "

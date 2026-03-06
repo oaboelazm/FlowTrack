@@ -37,8 +37,20 @@ classes:
     - bus
     - truck
 
+detection:
+  enabled: true
+  strict_classes: true
+  include_classes:
+    - person
+    - bicycle
+    - car
+    - motorcycle
+    - bus
+    - truck
+
 segmentation:
   enabled: false
+  strict_classes: true
   weights: "PretrainedYolo26/Segment.pt"
   conf: 0.35
   iou: 0.45

@@ -20,6 +20,7 @@ class SegmenterConfig:
     half: bool
     max_det: int
     include_classes: List[str]
+    strict_classes: bool = True
 
 
 class YoloSegmenter:
@@ -29,6 +30,9 @@ class YoloSegmenter:
         self.include_classes: Set[str] = {canonical_class_name(c) for c in cfg.include_classes}
 
     def infer(self, frame: np.ndarray) -> List[SegmentationMask]:
+        if self.cfg.strict_classes and not self.include_classes:
+            return []
+
         results = self.model.predict(
             source=frame,
             conf=self.cfg.conf,

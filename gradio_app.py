@@ -26,6 +26,7 @@ warnings.filterwarnings(
 
 def _build_cfg(
     source: str,
+    detection_enabled: bool,
     det_classes: str,
     weights: str,
     device: str,
@@ -64,7 +65,11 @@ def _build_cfg(
     cfg["source"]["chunk_queue_size"] = int(chunk_queue_size)
     cfg["source"]["processed_chunk_reuse"] = bool(processed_chunk_reuse)
     cfg["source"]["processed_chunk_slots"] = int(processed_chunk_slots)
-    cfg["classes"]["include"] = [c.strip() for c in str(det_classes).split(",") if c.strip()]
+    det_classes_list = [c.strip() for c in str(det_classes).split(",") if c.strip()]
+    cfg["classes"]["include"] = det_classes_list
+    cfg["detection"]["enabled"] = bool(detection_enabled)
+    cfg["detection"]["strict_classes"] = True
+    cfg["detection"]["include_classes"] = det_classes_list
     cfg["model"]["weights"] = str(weights).strip()
     cfg["model"]["device"] = "" if device == "auto" else str(device).strip()
     cfg["model"]["conf"] = float(conf)
@@ -81,6 +86,7 @@ def _build_cfg(
     cfg["segmentation"]["enabled"] = bool(seg_enabled)
     cfg["segmentation"]["weights"] = str(seg_weights).strip()
     cfg["segmentation"]["include_classes"] = [c.strip() for c in str(seg_classes).split(",") if c.strip()]
+    cfg["segmentation"]["strict_classes"] = True
     cfg["segmentation"]["conf"] = float(seg_conf)
     cfg["segmentation"]["iou"] = float(seg_iou)
     cfg["segmentation"]["imgsz"] = int(imgsz)
@@ -119,6 +125,7 @@ def _status_text(selected_device: str) -> str:
 
 def run_stream(
     source: str,
+    detection_enabled: bool,
     det_classes: str,
     weights: str,
     device: str,
@@ -151,6 +158,7 @@ def run_stream(
 ) -> Iterator[Tuple]:
     cfg = _build_cfg(
         source=source,
+        detection_enabled=detection_enabled,
         det_classes=det_classes,
         weights=weights,
         device=device,
@@ -280,6 +288,7 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
     with gr.Row():
         with gr.Column(scale=2):
             source = gr.Textbox(label="Source (0 / RTSP / HLS URL)", value="0")
+            detection_enabled = gr.Checkbox(label="Enable Detection", value=True)
             det_classes = gr.Textbox(
                 label="Detection Classes (comma-separated)",
                 value="person, bicycle, car, motorcycle, bus, truck",
@@ -352,6 +361,7 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
         fn=run_stream,
         inputs=[
             source,
+            detection_enabled,
             det_classes,
             weights,
             device,

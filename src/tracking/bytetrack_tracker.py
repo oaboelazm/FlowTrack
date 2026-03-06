@@ -21,6 +21,7 @@ class ByteTrackConfig:
     half: bool
     max_det: int
     include_classes: List[str]
+    strict_classes: bool = True
 
 
 class ByteTrackTracker:
@@ -30,6 +31,9 @@ class ByteTrackTracker:
         self.include_classes: Set[str] = {canonical_class_name(c) for c in cfg.include_classes}
 
     def track(self, frame: np.ndarray) -> List[TrackedObject]:
+        if self.cfg.strict_classes and not self.include_classes:
+            return []
+
         results = self.model.track(
             source=frame,
             persist=True,

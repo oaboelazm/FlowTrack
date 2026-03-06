@@ -141,7 +141,12 @@ class FlowTrackPipeline:
             resize_height=int(config["runtime"].get("resize_height", 720)),
         )
 
-        include_classes = self._parse_include_classes(config.get("classes", {}).get("include", []))
+        detection_cfg = config.get("detection", {})
+        include_classes = self._parse_include_classes(
+            detection_cfg.get("include_classes", config.get("classes", {}).get("include", []))
+        )
+        self.detection_enabled = bool(detection_cfg.get("enabled", True))
+        detection_strict_classes = bool(detection_cfg.get("strict_classes", True))
         model_cfg = config.get("model", {})
         resolved_weights = self._resolve_weights(model_cfg, self.log)
         resolved_device = self._resolve_device(model_cfg, self.log)
@@ -154,10 +159,11 @@ class FlowTrackPipeline:
             half=bool(model_cfg.get("half", False)),
             max_det=int(model_cfg.get("max_det", 300)),
             include_classes=include_classes,
+            strict_classes=detection_strict_classes,
         )
 
-        self.tracking_enabled = bool(config.get("tracking", {}).get("enabled", True))
-        if self.tracking_enabled:
+        self.tracking_enabled = bool(config.get("tracking", {}).get("enabled", True)) and self.detection_enabled
+        if self.detection_enabled and self.tracking_enabled:
             self.tracker = ByteTrackTracker(
                 ByteTrackConfig(
                     weights=resolved_weights,
@@ -169,11 +175,15 @@ class FlowTrackPipeline:
                     half=bool(model_cfg.get("half", False)),
                     max_det=int(model_cfg.get("max_det", 300)),
                     include_classes=include_classes,
+                    strict_classes=detection_strict_classes,
                 )
             )
             self.detector = None
-        else:
+        elif self.detection_enabled:
             self.detector = YoloDetector(self._detector_cfg)
+            self.tracker = None
+        else:
+            self.detector = None
             self.tracker = None
 
         segmentation_cfg = config.get("segmentation", {})
@@ -193,6 +203,7 @@ class FlowTrackPipeline:
                     half=bool(segmentation_cfg.get("half", model_cfg.get("half", False))),
                     max_det=int(segmentation_cfg.get("max_det", model_cfg.get("max_det", 300))),
                     include_classes=seg_include_classes,
+                    strict_classes=bool(segmentation_cfg.get("strict_classes", True)),
                 )
             )
         else:
@@ -273,6 +284,9 @@ class FlowTrackPipeline:
         self.log.info("Source connected: %s", self.cfg["source"]["input"])
 
     def _process_tracks(self, frame) -> list[TrackedObject]:
+        if not self.detection_enabled:
+            return []
+
         if self.tracker is not None:
             try:
                 return self.tracker.track(frame)
@@ -327,7 +341,8 @@ class FlowTrackPipeline:
             vis = self.analytics.heatmap_overlay(vis)
         if seg_masks:
             vis = draw_segmentations(vis, seg_masks)
-        vis = draw_tracks(vis, tracks)
+        if self.detection_enabled:
+            vis = draw_tracks(vis, tracks)
         vis = draw_line(vis, self.line_counter.cfg.p1, self.line_counter.cfg.p2)
         vis = draw_dashboard(vis, self.fps, counts, self.line_counter.summary(), metrics)
         return vis
