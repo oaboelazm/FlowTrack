@@ -1,106 +1,142 @@
-# FlowTrack
+# FlowTrack 🚗🚦
 
-FlowTrack is a real-time traffic monitoring and analytics system built with YOLO + ByteTrack + OpenCV, with Streamlit and Gradio dashboards for live monitoring.
+<div align="center">
+  <p><strong>Real-Time Traffic Monitoring and Analytics System</strong></p>
+  <p><em>نظام متكامل لمراقبة وتحليل حركة المرور في الوقت الفعلي</em></p>
+</div>
 
-## One-Click Notebooks
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/oaboelazm/FlowTrack/blob/main/notebooks/FlowTrack_Colab_Training_and_Stream.ipynb)
 [![Open In Kaggle](https://kaggle.com/static/images/open-in-kaggle.svg)](https://kaggle.com/kernels/welcome?src=https://raw.githubusercontent.com/oaboelazm/FlowTrack/main/notebooks/FlowTrack_Kaggle_Training_and_Stream.ipynb)
 
-## Current Status
-- End-to-end pipeline implemented for Phases 1 to 5.
-- Streamlit app launch verified on **February 20, 2026**.
-- Trained model artifact is available in this repo:
-  - `models/flowtrack_best.pt`
-  - `models/flowtrack_best.onnx`
+---
 
-## Features
-- Real-time multi-class detection (`person`, `bicycle`, `car`, `motorcycle`, `bus`, `truck`)
-- Multi-object tracking with unique IDs (ByteTrack)
-- Directional line crossing counts (`incoming` / `outgoing`)
-- Traffic analytics (flow, density, distribution, speed estimate)
-- Congestion and abnormal stop indicators
-- Movement heatmap overlay
-- CSV persistence for metrics and crossing events
-- Live Streamlit dashboard
-- Live Gradio dashboard (recommended for Colab GPU sessions)
-- Optional chunked stream buffer mode (record fixed-length chunks, process/display sequentially, auto-delete played chunks)
-- Smooth Segment Playback mode (default): outputs browser-compatible MP4 chunks for stable video playback
+## 🌟 Overview (نظرة عامة)
 
-## Project Structure
-- `src/ingestion` stream readers and reconnect handling
-- `src/detection` YOLO detection module
-- `src/tracking` ByteTrack module
-- `src/events` line crossing logic
-- `src/analytics` traffic analytics and heatmaps
-- `src/storage` CSV persistence
-- `src/visualization` overlays and HUD rendering
-- `src/app/pipeline.py` unified runtime engine
-- `src/main.py` CLI runtime entrypoint
-- `streamlit_app.py` web dashboard
-- `gradio_app.py` web dashboard (GPU-friendly runtime loop)
-- `configs/default.yaml` runtime config
-- `configs/training/*` training configs
-- `docs/` technical documentation and model report
+**FlowTrack** is an end-to-end, real-time traffic intelligence pipeline built using **YOLO**, **ByteTrack**, and **OpenCV**. It provides robust object detection, multi-object tracking, directional line crossing counts, and advanced traffic analytics (speed estimation, congestion detection, etc.). The project includes live monitoring dashboards built with **Streamlit** and **Gradio**.
 
-## Setup
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+**FlowTrack** (فلو تراك) هو نظام متكامل يعمل في الوقت الفعلي لتحليل حركة المرور باستخدام أحدث تقنيات الرؤية الحاسوبية (YOLO و ByteTrack). يقدم النظام حلولاً لاكتشاف المركبات والمشاة، تتبع الكائنات، حساب عدد العابرين في اتجاهات محددة، وتحليلات متقدمة مثل تقدير السرعة واكتشاف الازدحام والتوقف غير الطبيعي.
+
+---
+
+## ✨ Features (المميزات)
+
+*   **Real-time Multi-Class Detection:** Detects `person`, `bicycle`, `car`, `motorcycle`, `bus`, and `truck`. *(اكتشاف الكائنات المتعددة في الوقت الفعلي)*
+*   **Multi-Object Tracking:** Assigns unique, stable IDs to objects using ByteTrack. *(تتبع الكائنات مع إعطاء معرفات فريدة)*
+*   **Directional Line Crossing:** Tracks objects crossing virtual lines (`incoming` / `outgoing`) with anti-duplicate logic. *(حساب العابرين لخطوط افتراضية في كلا الاتجاهين)*
+*   **Traffic Analytics:** Calculates flow (vehicles/min), density, class distribution, and estimates speed. *(تحليلات المرور مثل الكثافة وتدفق المركبات وتقدير السرعة)*
+*   **Advanced Indicators:** Congestion detection, abnormal stop detection, and movement heatmap overlay. *(مؤشرات متقدمة مثل الازدحام والخرائط الحرارية للحركة)*
+*   **Segmentation Support:** Optional instance segmentation using YOLO segmentation models. *(دعم التجزئة للنماذج)*
+*   **Dashboards:** Live web dashboards using Streamlit and a GPU-friendly Gradio app. *(لوحات تحكم تفاعلية)*
+*   **Smooth Playback Mode:** Chunked stream buffer mode for stable, video-like playback without frame-by-frame flickering. *(تشغيل سلس للفيديو بدون تقطيع)*
+*   **Data Persistence:** Exports metrics and crossing events to CSV files for further analysis. *(تصدير البيانات إلى ملفات CSV)*
+
+---
+
+## 📂 Project Structure (هيكل المشروع)
+
+```text
+FlowTrack/
+├── configs/                  # YAML configuration files (default.yaml, training configs)
+├── docs/                     # Technical documentation, model reports, and training guides
+├── models/                   # Directory for trained models (.pt, .onnx)
+├── notebooks/                # Colab & Kaggle quickstart notebooks
+├── PretrainedYolo26/         # Pretrained YOLO models (Detect.pt, Segment.pt)
+├── scripts/                  # Bash and Python scripts for training, evaluation, etc.
+├── src/                      # Source code
+│   ├── analytics/            # Traffic analytics, speed estimation, heatmaps
+│   ├── app/                  # Unified runtime engine (pipeline.py)
+│   ├── core/                 # Core entities, class names normalization
+│   ├── detection/            # YOLO detection wrapper
+│   ├── events/               # Line crossing logic
+│   ├── ingestion/            # Stream readers, reconnect handlers, chunking
+│   ├── segmentation/         # YOLO segmentation wrapper
+│   ├── storage/              # CSV persistence
+│   ├── tracking/             # ByteTrack logic
+│   ├── utils/                # Logging, config loading, generic utilities
+│   └── visualization/        # Overlays, HUD rendering, drawing bounding boxes
+├── main.py                   # CLI entrypoint (src.main)
+├── gradio_app.py             # Gradio web dashboard
+├── streamlit_app.py          # Streamlit web dashboard
+├── requirements.txt          # Python dependencies
+└── README.md                 # This file
 ```
 
-## Run
-CLI (webcam):
+---
+
+## 🚀 Setup & Installation (الإعداد والتثبيت)
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/oaboelazm/FlowTrack.git
+cd FlowTrack
+```
+
+### 2. Create a Virtual Environment (Optional but recommended)
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+*(Optional) If you want video chunk conversion to H.264 MP4 for browser compatibility, ensure `ffmpeg` is installed on your system:*
+* **Ubuntu/Debian:** `sudo apt install ffmpeg`
+* **Mac:** `brew install ffmpeg`
+
+---
+
+## 💻 Usage (طريقة الاستخدام)
+
+### CLI Mode (واجهة سطر الأوامر)
+Run with a webcam (default `0`):
 ```bash
 python -m src.main --source 0
 ```
-
-CLI (RTSP):
+Run with an RTSP stream:
 ```bash
 python -m src.main --source "rtsp://user:pass@host:554/stream"
 ```
+*Note: You can pass overrides such as `--weights`, `--conf`, `--show-heatmap`, etc. Check `python -m src.main --help`.*
 
-Streamlit:
+### Streamlit Dashboard
+Launch the interactive Streamlit dashboard for real-time monitoring:
 ```bash
 streamlit run streamlit_app.py
 ```
 
-Gradio (recommended on Colab / GPU):
+### Gradio Dashboard (Recommended for Colab / GPU)
+Launch the Gradio app, which includes an optimized runtime loop:
 ```bash
 python gradio_app.py
 ```
 
-Default runtime profile is now:
-- `Chunked Stream Buffer Mode = ON`
-- `Segment Playback Mode = ON`
-- `chunk_seconds = 12`
-- `first_chunk_seconds = 20`
-- `chunk_queue_size = 3`
+---
 
-This profile avoids frame-by-frame flicker and gives smooth video-like playback of detected traffic segments.
-Video loop is disabled by default, and the player switches to the next processed segment as soon as it is ready.
-Optional optimization:
-- Enable `Reuse Output Slots (Overwrite Mode)` and set `Output Slot Count` to `2` or `3`.
-- This reduces file create/delete churn and can improve UI smoothness on weak CPU/storage.
+## ⚙️ Configuration (الإعدادات)
+The main configuration file is located at `configs/default.yaml`.
+You can adjust:
+* **`app`**: Display settings, playback mode.
+* **`source`**: Input URL, chunking settings, reconnect delays.
+* **`model`**: YOLO weights path, confidence threshold (`conf`), NMS IoU (`iou`), image size (`imgsz`).
+* **`line_counter`**: Coordinates for the virtual counting line (`x1, y1, x2, y2`) and cooldown logic.
+* **`analytics`**: Thresholds for congestion, speed estimation calibration (`meters_per_pixel`), etc.
+* **`storage`**: Paths for output CSV files.
 
-If `ffmpeg` is available, each processed chunk is converted to browser-friendly H.264 MP4 (`yuv420p`) before rendering.
+---
 
-## Colab Quick Deploy (GPU)
-Run these cells in Colab if you want the app up quickly:
+## ☁️ Cloud Quick Deploy (النشر السحابي)
 
+### Google Colab (GPU)
 ```bash
 !git clone https://github.com/oaboelazm/FlowTrack.git
 %cd FlowTrack
 !pip install -r requirements.txt
-```
-
-```bash
 !GRADIO_SHARE=1 python gradio_app.py
 ```
 
-## Kaggle Quick Deploy (GPU)
-Use the Kaggle button above, then run:
-
+### Kaggle (GPU)
 ```bash
 !git clone https://github.com/oaboelazm/FlowTrack.git
 %cd FlowTrack
@@ -109,37 +145,18 @@ Use the Kaggle button above, then run:
 !GRADIO_SHARE=1 python gradio_app.py
 ```
 
-## Training
-Quick training scripts:
-```bash
-./scripts/train_fit.sh
-./scripts/train_eval_export.sh runs/detect/runs/flowtrack/visdrone_smoke5/weights/best.pt
-```
+---
 
-Use any Ultralytics YOLO generation by changing `model` in `configs/training/train_bdd100k.yaml`:
-```yaml
-model: yolov8n.pt
-```
-Examples:
-- `model: yolo11n.pt`
-- `model: yolo26n.pt` (if supported in your installed Ultralytics version)
+## 📚 Documentation (التوثيق)
+For a deeper dive into the system architecture, training pipelines, and evaluation metrics, please refer to the `docs/` folder:
 
-Then train:
-```bash
-python scripts/training/train_yolo.py --train-config configs/training/train_bdd100k.yaml
-```
+*   📖 [**Project Documentation**](docs/PROJECT_DOCUMENTATION.md): Detailed explanation of modules, architecture, and runtime modes.
+*   🏋️ [**Training Guide**](docs/TRAINING.md): How to train FlowTrack on custom datasets like BDD100K or VisDrone.
+*   📊 [**Model Report**](docs/MODEL_REPORT.md): Evaluation metrics and benchmarks for the provided models.
 
-BDD100K conversion/training workflow:
-- `docs/TRAINING.md`
-- `scripts/training/prepare_bdd100k.py`
-- `configs/training/train_bdd100k.yaml`
+---
 
-## Outputs
-- Runtime analytics: `outputs/metrics.csv`, `outputs/crossings.csv`
-- Training artifacts: `runs/detect/runs/flowtrack/*`
-- Documentation figures: `docs/assets/*`
-
-## Documentation
-- Full system documentation: `docs/PROJECT_DOCUMENTATION.md`
-- Model training report with metrics and figures: `docs/MODEL_REPORT.md`
-- Training guide: `docs/TRAINING.md`
+## 📝 Outputs & Artifacts
+*   **Runtime Analytics:** Stored in `outputs/metrics.csv` and `outputs/crossings.csv`.
+*   **Training Artifacts:** Stored in `runs/detect/runs/flowtrack/*`.
+*   **Chunked Videos:** Stored in `outputs/chunks/` and `outputs/processed_chunks/`.
