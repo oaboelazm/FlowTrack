@@ -293,7 +293,7 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
                 label="Detection Classes (comma-separated)",
                 value="person, bicycle, car, motorcycle, bus, truck",
             )
-            weights = gr.Textbox(label="Weights", value="yolov8n.pt")
+            weights = gr.Textbox(label="Weights", value="/kaggle/working/FlowTrack/PretrainedYolo26/Detect.pt")
             device = gr.Dropdown(label="Device", choices=["auto", "cuda:0", "cpu"], value="auto")
             with gr.Row():
                 conf = gr.Slider(label="Confidence", minimum=0.1, maximum=0.9, value=0.35, step=0.01)
@@ -306,7 +306,7 @@ with gr.Blocks(title="FlowTrack GPU Monitor") as demo:
                 show_heatmap = gr.Checkbox(label="Show Heatmap", value=False)
             with gr.Row():
                 seg_enabled = gr.Checkbox(label="Enable Segmentation", value=False)
-                seg_weights = gr.Textbox(label="Segmentation Weights", value="yolov8n-seg.pt")
+                seg_weights = gr.Textbox(label="Segmentation Weights", value="/kaggle/working/FlowTrack/PretrainedYolo26/Segment.pt")
             with gr.Row():
                 seg_classes = gr.Textbox(label="Segmentation Classes", value="person, car, bus, truck")
                 seg_conf = gr.Slider(label="Seg Confidence", minimum=0.1, maximum=0.9, value=0.35, step=0.01)

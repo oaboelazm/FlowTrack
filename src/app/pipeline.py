@@ -328,13 +328,20 @@ class FlowTrackPipeline:
             self.log.warning("Segmentation inference failed: %s", e)
             return []
 
+    @staticmethod
+    def _seg_counts_by_class(seg_masks: list[SegmentationMask]) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
+        for item in seg_masks:
+            counts[item.class_name] = counts.get(item.class_name, 0) + 1
+        return counts
+
     def _visualize_frame(
         self,
         frame,
         tracks: list[TrackedObject],
         seg_masks: list[SegmentationMask],
-        counts: Dict[str, int],
-        metrics: Dict[str, float],
+        det_counts: Dict[str, int],
+        seg_counts: Dict[str, int],
     ):
         vis = frame
         if self.show_heatmap:
@@ -344,7 +351,7 @@ class FlowTrackPipeline:
         if self.detection_enabled:
             vis = draw_tracks(vis, tracks)
         vis = draw_line(vis, self.line_counter.cfg.p1, self.line_counter.cfg.p2)
-        vis = draw_dashboard(vis, self.fps, counts, self.line_counter.summary(), metrics)
+        vis = draw_dashboard(vis, self.fps, det_counts, seg_counts, self.line_counter.summary())
         return vis
 
     def process_next(self) -> Optional[PipelineOutput]:
@@ -364,7 +371,8 @@ class FlowTrackPipeline:
         frame = cv2.resize(frame, (self.runtime.resize_width, self.runtime.resize_height))
         tracks = self._process_tracks(frame)
         seg_masks = self._process_segmentations(frame)
-        counts = self._counts_by_class(tracks)
+        det_counts = self._counts_by_class(tracks)
+        seg_counts = self._seg_counts_by_class(seg_masks)
 
         now = time.time()
         dt = max(now - self.t_prev, 1e-6)
@@ -374,7 +382,7 @@ class FlowTrackPipeline:
         crossing_events: list[CrossingEvent] = self.line_counter.update(tracks, now)
         metrics = self.analytics.update(tracks, crossing_events, frame.shape, now)
 
-        vis = self._visualize_frame(frame, tracks, seg_masks, counts, metrics)
+        vis = self._visualize_frame(frame, tracks, seg_masks, det_counts, seg_counts)
 
         if self.storage_enabled and (now - self.t_last_store >= self.storage_interval_sec):
             metrics_row: Dict[str, float] = {"timestamp": now, "fps": float(self.fps)}
@@ -386,12 +394,12 @@ class FlowTrackPipeline:
             self.t_last_store = now
 
         if self.print_counts:
-            self.log.info("Counts: %s | Line: %s", counts, self.line_counter.summary())
+            self.log.info("Counts: %s | Line: %s", det_counts, self.line_counter.summary())
 
         return PipelineOutput(
             frame_bgr=vis,
             fps=self.fps,
-            counts_per_frame=counts,
+            counts_per_frame=det_counts,
             total_tracks_in_frame=len(tracks),
             crossing_events=crossing_events,
             metrics=metrics,
@@ -425,7 +433,7 @@ class FlowTrackPipeline:
         writer = None
 
         total_frames = 0
-        counts: Dict[str, int] = {}
+        det_counts: Dict[str, int] = {}
         metrics: Dict[str, float] = {}
         crossing_events_all: list[CrossingEvent] = []
         start_ts = time.time()
@@ -439,7 +447,8 @@ class FlowTrackPipeline:
                 frame = cv2.resize(frame, (self.runtime.resize_width, self.runtime.resize_height))
                 tracks = self._process_tracks(frame)
                 seg_masks = self._process_segmentations(frame)
-                counts = self._counts_by_class(tracks)
+                det_counts = self._counts_by_class(tracks)
+                seg_counts = self._seg_counts_by_class(seg_masks)
 
                 now = time.time()
                 dt = max(now - self.t_prev, 1e-6)
@@ -450,7 +459,7 @@ class FlowTrackPipeline:
                 crossing_events_all.extend(crossing_events)
                 metrics = self.analytics.update(tracks, crossing_events, frame.shape, now)
 
-                vis = self._visualize_frame(frame, tracks, seg_masks, counts, metrics)
+                vis = self._visualize_frame(frame, tracks, seg_masks, det_counts, seg_counts)
 
                 if writer is None:
                     h, w = vis.shape[:2]
@@ -490,7 +499,7 @@ class FlowTrackPipeline:
             video_path=str(out_web_path),
             fps=self.fps,
             total_frames=total_frames,
-            counts_per_frame=counts,
+            counts_per_frame=det_counts,
             crossing_events=crossing_events_all,
             metrics=metrics,
         )
