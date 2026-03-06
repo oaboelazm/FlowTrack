@@ -1,15 +1,15 @@
 # FlowTrack Project Documentation
 
-## 1) Objective (الهدف)
+## 1) Objective
 
 Build a production-oriented real-time traffic intelligence pipeline that can process live camera streams and provide:
-- Object detection (اكتشاف الكائنات)
-- Multi-object tracking (تتبع الكائنات المتعددة)
-- Directional counting (العد الاتجاهي)
-- Traffic analytics (تحليلات المرور)
-- Dashboard visualization (تصور البيانات عبر لوحات التحكم)
+- Object detection
+- Multi-object tracking
+- Directional counting
+- Traffic analytics
+- Dashboard visualization
 
-## 2) Implemented Scope (النطاق المُنفذ)
+## 2) Implemented Scope
 
 ### Phase 1: Real-Time Detection
 - **YOLO** inference on webcam/RTSP stream.
@@ -44,7 +44,7 @@ Build a production-oriented real-time traffic intelligence pipeline that can pro
 - Integrated optional **YOLO Segmentation** models.
 - Extracts precise object masks for enhanced visualization and potentially more accurate analytics in the future.
 
-## 3) Architecture (الهيكل المعماري)
+## 3) Architecture
 
 ### Pipeline Flow
 `Source -> Detect/Track/Segment -> Events -> Analytics -> Storage -> Visualization`
@@ -61,7 +61,7 @@ Build a production-oriented real-time traffic intelligence pipeline that can pro
 - **`streamlit_app.py`**: The Streamlit-based web dashboard.
 - **`gradio_app.py`**: The Gradio-based web dashboard.
 
-## 4) Runtime Modes (أوضاع التشغيل)
+## 4) Runtime Modes
 
 ### CLI Mode (`src/main.py`)
 - Command-line execution.
@@ -78,7 +78,7 @@ Build a production-oriented real-time traffic intelligence pipeline that can pro
 - GPU-friendly runtime loop (ideal for Google Colab/Kaggle).
 - Incorporates a smooth chunked video playback system to display processed segments seamlessly.
 
-## 5) Configuration (الإعدادات)
+## 5) Configuration
 
 The primary runtime configuration is handled via **`configs/default.yaml`**.
 
@@ -100,7 +100,7 @@ Training configurations (for custom model training):
 - `configs/training/train_visdrone_full.yaml`
 - `configs/training/train_bdd100k.yaml`
 
-## 6) Storage and Artifacts (التخزين والمخرجات)
+## 6) Storage and Artifacts
 
 ### Runtime Outputs
 - `outputs/metrics.csv`: Time-series data of traffic analytics.
@@ -111,13 +111,13 @@ Training configurations (for custom model training):
 - `runs/detect/runs/flowtrack/*`: Contains model weights, evaluation metrics, and plots from training runs.
 - Selected exported artifacts are typically moved to `models/` or `PretrainedYolo26/`.
 
-## 7) Known Constraints (القيود المعروفة)
+## 7) Known Constraints
 
 - The default trained models might require fine-tuning for specific camera angles and lighting conditions to achieve maximum accuracy.
 - **Speed estimates** are currently based on a global `meters_per_pixel` calibration factor, which assumes a flat plane parallel to the camera. For accurate physical speed measurements, scene-specific perspective calibration is required.
 - Running both detection and segmentation simultaneously on high-resolution streams requires significant computational power (GPU recommended).
 
-## 8) Recommended Production Next Steps (الخطوات القادمة للإنتاج)
+## 8) Recommended Production Next Steps
 
 1. **Train longer profiles** (e.g., `train_visdrone_full.yaml`) or a full BDD100K pipeline for improved model robustness.
 2. Add **periodic evaluation** on held-out, city-specific validation data to ensure continued performance.

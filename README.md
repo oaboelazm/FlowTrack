@@ -2,7 +2,6 @@
 
 <div align="center">
   <p><strong>Real-Time Traffic Monitoring and Analytics System</strong></p>
-  <p><em>نظام متكامل لمراقبة وتحليل حركة المرور في الوقت الفعلي</em></p>
 </div>
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/oaboelazm/FlowTrack/blob/main/notebooks/FlowTrack_Colab_Training_and_Stream.ipynb)
@@ -10,29 +9,27 @@
 
 ---
 
-## 🌟 Overview (نظرة عامة)
+## 🌟 Overview
 
 **FlowTrack** is an end-to-end, real-time traffic intelligence pipeline built using **YOLO**, **ByteTrack**, and **OpenCV**. It provides robust object detection, multi-object tracking, directional line crossing counts, and advanced traffic analytics (speed estimation, congestion detection, etc.). The project includes live monitoring dashboards built with **Streamlit** and **Gradio**.
 
-**FlowTrack** (فلو تراك) هو نظام متكامل يعمل في الوقت الفعلي لتحليل حركة المرور باستخدام أحدث تقنيات الرؤية الحاسوبية (YOLO و ByteTrack). يقدم النظام حلولاً لاكتشاف المركبات والمشاة، تتبع الكائنات، حساب عدد العابرين في اتجاهات محددة، وتحليلات متقدمة مثل تقدير السرعة واكتشاف الازدحام والتوقف غير الطبيعي.
+---
+
+## ✨ Features
+
+*   **Real-time Multi-Class Detection:** Detects `person`, `bicycle`, `car`, `motorcycle`, `bus`, and `truck`.
+*   **Multi-Object Tracking:** Assigns unique, stable IDs to objects using ByteTrack.
+*   **Directional Line Crossing:** Tracks objects crossing virtual lines (`incoming` / `outgoing`) with anti-duplicate logic.
+*   **Traffic Analytics:** Calculates flow (vehicles/min), density, class distribution, and estimates speed.
+*   **Advanced Indicators:** Congestion detection, abnormal stop detection, and movement heatmap overlay.
+*   **Segmentation Support:** Optional instance segmentation using YOLO segmentation models.
+*   **Dashboards:** Live web dashboards using Streamlit and a GPU-friendly Gradio app.
+*   **Smooth Playback Mode:** Chunked stream buffer mode for stable, video-like playback without frame-by-frame flickering.
+*   **Data Persistence:** Exports metrics and crossing events to CSV files for further analysis.
 
 ---
 
-## ✨ Features (المميزات)
-
-*   **Real-time Multi-Class Detection:** Detects `person`, `bicycle`, `car`, `motorcycle`, `bus`, and `truck`. *(اكتشاف الكائنات المتعددة في الوقت الفعلي)*
-*   **Multi-Object Tracking:** Assigns unique, stable IDs to objects using ByteTrack. *(تتبع الكائنات مع إعطاء معرفات فريدة)*
-*   **Directional Line Crossing:** Tracks objects crossing virtual lines (`incoming` / `outgoing`) with anti-duplicate logic. *(حساب العابرين لخطوط افتراضية في كلا الاتجاهين)*
-*   **Traffic Analytics:** Calculates flow (vehicles/min), density, class distribution, and estimates speed. *(تحليلات المرور مثل الكثافة وتدفق المركبات وتقدير السرعة)*
-*   **Advanced Indicators:** Congestion detection, abnormal stop detection, and movement heatmap overlay. *(مؤشرات متقدمة مثل الازدحام والخرائط الحرارية للحركة)*
-*   **Segmentation Support:** Optional instance segmentation using YOLO segmentation models. *(دعم التجزئة للنماذج)*
-*   **Dashboards:** Live web dashboards using Streamlit and a GPU-friendly Gradio app. *(لوحات تحكم تفاعلية)*
-*   **Smooth Playback Mode:** Chunked stream buffer mode for stable, video-like playback without frame-by-frame flickering. *(تشغيل سلس للفيديو بدون تقطيع)*
-*   **Data Persistence:** Exports metrics and crossing events to CSV files for further analysis. *(تصدير البيانات إلى ملفات CSV)*
-
----
-
-## 📂 Project Structure (هيكل المشروع)
+## 📂 Project Structure
 
 ```text
 FlowTrack/
@@ -63,7 +60,7 @@ FlowTrack/
 
 ---
 
-## 🚀 Setup & Installation (الإعداد والتثبيت)
+## 🚀 Setup & Installation
 
 ### 1. Clone the repository
 ```bash
@@ -87,9 +84,9 @@ pip install -r requirements.txt
 
 ---
 
-## 💻 Usage (طريقة الاستخدام)
+## 💻 Usage
 
-### CLI Mode (واجهة سطر الأوامر)
+### CLI Mode
 Run with a webcam (default `0`):
 ```bash
 python -m src.main --source 0
@@ -114,7 +111,7 @@ python gradio_app.py
 
 ---
 
-## ⚙️ Configuration (الإعدادات)
+## ⚙️ Configuration
 The main configuration file is located at `configs/default.yaml`.
 You can adjust:
 * **`app`**: Display settings, playback mode.
@@ -126,7 +123,7 @@ You can adjust:
 
 ---
 
-## ☁️ Cloud Quick Deploy (النشر السحابي)
+## ☁️ Cloud Quick Deploy
 
 ### Google Colab (GPU)
 ```bash
@@ -147,7 +144,7 @@ You can adjust:
 
 ---
 
-## 📚 Documentation (التوثيق)
+## 📚 Documentation
 For a deeper dive into the system architecture, training pipelines, and evaluation metrics, please refer to the `docs/` folder:
 
 *   📖 [**Project Documentation**](docs/PROJECT_DOCUMENTATION.md): Detailed explanation of modules, architecture, and runtime modes.

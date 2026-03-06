@@ -2,7 +2,7 @@
 
 This guide details the process for training a custom YOLO model (for detection or segmentation) specifically tailored for the **FlowTrack** traffic analytics pipeline.
 
-## 1) Dataset Choice (اختيار مجموعة البيانات)
+## 1) Dataset Choice
 
 For robust traffic monitoring, we recommend datasets that capture diverse urban environments, lighting conditions, and camera angles:
 
@@ -17,7 +17,7 @@ The primary classes of interest for the pipeline are:
 
 ---
 
-## 2) Prepare BDD100K into YOLO Format (تجهيز بيانات BDD100K)
+## 2) Prepare BDD100K into YOLO Format
 
 If you plan to use BDD100K, you must convert it from its native JSON format to the YOLO txt format.
 
@@ -45,7 +45,7 @@ This script will generate:
 
 ---
 
-## 3) Train the Model (تدريب النموذج)
+## 3) Train the Model
 
 Use the provided training script to start the training process. The `--train-config` argument points to a YAML file containing hyperparameters and dataset paths.
 
@@ -60,7 +60,7 @@ The best-performing model weights during the training run are usually located at
 
 ---
 
-## 4) Evaluate and Export (التقييم والتصدير)
+## 4) Evaluate and Export
 
 After training, evaluate the best checkpoint on your validation set to get precise metrics (mAP, Precision, Recall). You can also export the model to ONNX format for potentially faster inference or edge deployment.
 
@@ -80,7 +80,7 @@ The `configs/training/` directory contains several pre-configured YAML files:
 
 ---
 
-## 5) Use the Trained Model in FlowTrack (استخدام النموذج المدرب)
+## 5) Use the Trained Model in FlowTrack
 
 Once you have a satisfactory `best.pt` file, you need to tell FlowTrack to use it.
 
@@ -105,7 +105,7 @@ python -m src.main --source 0 --weights runs/flowtrack/yolo_bdd100k_traffic/weig
 
 ---
 
-## 💡 Training Tips (نصائح للتدريب)
+## 💡 Training Tips
 
 *   **Model Selection:** Start with `yolov8n.pt` (Nano) or `yolo11n.pt` for rapid iteration and prototyping. If accuracy is insufficient and your hardware permits, scale up to `yolov8s.pt` (Small) or `yolov8m.pt` (Medium).
 *   **Image Size (`imgsz`):** For traffic monitoring, detecting small, distant vehicles is often crucial. Increase `imgsz` (e.g., from 640 to 960 or 1280) if your GPU memory allows it.

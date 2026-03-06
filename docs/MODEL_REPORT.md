@@ -4,7 +4,7 @@ This document summarizes the training parameters, performance metrics, and visua
 
 ---
 
-## 1) Training Run Summary (ملخص جلسة التدريب)
+## 1) Training Run Summary
 
 This section details the specific configuration used to train the model.
 
@@ -24,7 +24,7 @@ This section details the specific configuration used to train the model.
 
 ---
 
-## 2) Final Validation Metrics (المقاييس النهائية للتقييم)
+## 2) Final Validation Metrics
 
 The following metrics represent the performance of the best checkpoint on the validation set at the end of the training run.
 
@@ -37,7 +37,7 @@ The following metrics represent the performance of the best checkpoint on the va
 
 ---
 
-## 3) Metric Progress by Epoch (تقدم المقاييس عبر الحلقات)
+## 3) Metric Progress by Epoch
 
 This table shows how the key metrics evolved over the 5 training epochs.
 
@@ -51,7 +51,7 @@ This table shows how the key metrics evolved over the 5 training epochs.
 
 ---
 
-## 4) Visual Artifacts (النتائج المرئية)
+## 4) Visual Artifacts
 
 The following plots and images provide visual insight into the model's performance during training and on the validation set.
 
@@ -78,7 +78,7 @@ The following plots and images provide visual insight into the model's performan
 
 ---
 
-## 5) Interpretation & Current Status (تفسير النتائج والحالة الحالية)
+## 5) Interpretation & Current Status
 
 *   **Functional Baseline:** The current `best.pt` model serves as a valid, end-to-end functional checkpoint for testing the complete FlowTrack pipeline (detection, tracking, analytics, and visualization).
 *   **Low Metrics Justification:** The precision and recall metrics reported above are **intentionally low**. This training run (`visdrone_smoke5`) was designed as a "smoke test"—a quick, lightweight process (CPU, 5 epochs, 1% data) simply to verify the codebase and training scripts run without errors.
@@ -86,7 +86,7 @@ The following plots and images provide visual insight into the model's performan
 
 ---
 
-## 6) 🚀 Recommended Accuracy Upgrade Path (مسار ترقية الدقة الموصى به)
+## 6) 🚀 Recommended Accuracy Upgrade Path
 
 To achieve deployment-grade accuracy and robust performance, follow these steps to train a significantly better model:
 
