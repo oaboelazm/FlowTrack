@@ -1,145 +1,132 @@
 # FlowTrack
 
-FlowTrack is a real-time traffic monitoring and analytics system built with YOLO + ByteTrack + OpenCV, with Streamlit and Gradio dashboards for live monitoring.
+FlowTrack is a real-time traffic analytics system for **object detection + instance segmentation + tracking** on live video streams.
+
+It provides:
+- Real-time detection (vehicles and people)
+- Optional instance segmentation overlay
+- Multi-object tracking (ByteTrack)
+- Line-crossing counts (incoming / outgoing)
+- Traffic analytics (flow, density, speed proxy)
+- Live dashboards with Streamlit and Gradio
 
 ## One-Click Notebooks
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/oaboelazm/FlowTrack/blob/main/notebooks/FlowTrack_Colab_Training_and_Stream.ipynb)
 [![Open In Kaggle](https://kaggle.com/static/images/open-in-kaggle.svg)](https://kaggle.com/kernels/welcome?src=https://raw.githubusercontent.com/oaboelazm/FlowTrack/main/notebooks/FlowTrack_Kaggle_Training_and_Stream.ipynb)
 
-## Current Status
-- End-to-end pipeline implemented for Phases 1 to 5.
-- Streamlit app launch verified on **February 20, 2026**.
-- Trained model artifact is available in this repo:
-  - `models/flowtrack_best.pt`
-  - `models/flowtrack_best.onnx`
+## Model and Training Summary
 
-## Features
-- Real-time multi-class detection (`person`, `bicycle`, `car`, `motorcycle`, `bus`, `truck`)
-- Multi-object tracking with unique IDs (ByteTrack)
-- Directional line crossing counts (`incoming` / `outgoing`)
-- Traffic analytics (flow, density, distribution, speed estimate)
-- Congestion and abnormal stop indicators
-- Movement heatmap overlay
-- CSV persistence for metrics and crossing events
-- Live Streamlit dashboard
-- Live Gradio dashboard (recommended for Colab GPU sessions)
-- Optional chunked stream buffer mode (record fixed-length chunks, process/display sequentially, auto-delete played chunks)
-- Smooth Segment Playback mode (default): outputs browser-compatible MP4 chunks for stable video playback
+- Detection dataset: **VisDrone**
+- Segmentation dataset: **COCO**
+- Base model used for both tasks: **YOLO26m**
+- Training setup: **15 epochs** (same setup used in the project notebook)
+- Runtime weights in this repo:
+  - `PretrainedYolo26/Detect.pt`
+  - `PretrainedYolo26/Segment.pt`
 
-## Project Structure
-- `src/ingestion` stream readers and reconnect handling
-- `src/detection` YOLO detection module
-- `src/tracking` ByteTrack module
-- `src/events` line crossing logic
-- `src/analytics` traffic analytics and heatmaps
-- `src/storage` CSV persistence
-- `src/visualization` overlays and HUD rendering
-- `src/app/pipeline.py` unified runtime engine
-- `src/main.py` CLI runtime entrypoint
-- `streamlit_app.py` web dashboard
-- `gradio_app.py` web dashboard (GPU-friendly runtime loop)
-- `configs/default.yaml` runtime config
-- `configs/training/*` training configs
-- `docs/` technical documentation and model report
+## Key Validation Results
 
-## Setup
+### Segmentation (COCO-trained YOLO26m)
+
+Overall:
+- Box: `P=0.717`, `R=0.598`, `mAP50=0.664`, `mAP50-95=0.495`
+- Mask: `P=0.716`, `R=0.576`, `mAP50=0.639`, `mAP50-95=0.408`
+
+Important classes (Mask mAP50-95):
+- `person`: `0.501`
+- `car`: `0.400`
+- `bus`: `0.675`
+- `truck`: `0.379`
+
+### Detection (VisDrone-trained YOLO26m)
+
+Overall:
+- Box: `P=0.385`, `R=0.287`, `mAP50=0.275`, `mAP50-95=0.160`
+
+Important classes (mAP50-95):
+- `car`: `0.493`
+- `pedestrian`: `0.214`
+- `bus`: `0.244`
+- `truck`: `0.093`
+
+## Main Features
+
+- Real-time video input from webcam, RTSP, file, or URL
+- Detection and optional segmentation in one pipeline
+- ByteTrack integration for stable track IDs
+- Configurable virtual line for directional counting
+- CSV logging for metrics and crossing events
+- Chunked streaming and smooth segment playback for web apps
+
+## Quick Start
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Run
-CLI (webcam):
+## Run the Project
+
+### 1) CLI
+
 ```bash
 python -m src.main --source 0
 ```
 
-CLI (RTSP):
+RTSP example:
+
 ```bash
 python -m src.main --source "rtsp://user:pass@host:554/stream"
 ```
 
-Streamlit:
+### 2) Streamlit Dashboard
+
 ```bash
 streamlit run streamlit_app.py
 ```
 
-Gradio (recommended on Colab / GPU):
+### 3) Gradio Dashboard
+
 ```bash
 python gradio_app.py
 ```
 
-Default runtime profile is now:
-- `Chunked Stream Buffer Mode = ON`
-- `Segment Playback Mode = ON`
-- `chunk_seconds = 12`
-- `first_chunk_seconds = 20`
-- `chunk_queue_size = 3`
+## Configuration
 
-This profile avoids frame-by-frame flicker and gives smooth video-like playback of detected traffic segments.
-Video loop is disabled by default, and the player switches to the next processed segment as soon as it is ready.
-Optional optimization:
-- Enable `Reuse Output Slots (Overwrite Mode)` and set `Output Slot Count` to `2` or `3`.
-- This reduces file create/delete churn and can improve UI smoothness on weak CPU/storage.
+Main runtime config: `configs/default.yaml`
 
-If `ffmpeg` is available, each processed chunk is converted to browser-friendly H.264 MP4 (`yuv420p`) before rendering.
+Important defaults:
+- Detection weights: `PretrainedYolo26/Detect.pt`
+- Segmentation weights: `PretrainedYolo26/Segment.pt`
+- Chunk mode: enabled
+- Segment playback mode: enabled
 
-## Colab Quick Deploy (GPU)
-Run these cells in Colab if you want the app up quickly:
+You can enable/disable detection, tracking, and segmentation from the UI or config.
 
-```bash
-!git clone https://github.com/oaboelazm/FlowTrack.git
-%cd FlowTrack
-!pip install -r requirements.txt
-```
+## Training Files
 
-```bash
-!GRADIO_SHARE=1 python gradio_app.py
-```
+- Notebook workflows:
+  - `notebooks/FlowTrack_Colab_Training_and_Stream.ipynb`
+  - `notebooks/FlowTrack_Kaggle_Training_and_Stream.ipynb`
+- Script entrypoint: `scripts/training/train_yolo.py`
+- Training configs: `configs/training/`
 
-## Kaggle Quick Deploy (GPU)
-Use the Kaggle button above, then run:
+## Output Files
 
-```bash
-!git clone https://github.com/oaboelazm/FlowTrack.git
-%cd FlowTrack
-!pip install -r requirements.txt
-!ffmpeg -version || (apt-get update && apt-get install -y ffmpeg)
-!GRADIO_SHARE=1 python gradio_app.py
-```
+- Runtime metrics: `outputs/metrics.csv`
+- Crossing events: `outputs/crossings.csv`
+- Processed stream chunks: `outputs/processed_chunks/`
 
-## Training
-Quick training scripts:
-```bash
-./scripts/train_fit.sh
-./scripts/train_eval_export.sh runs/detect/runs/flowtrack/visdrone_smoke5/weights/best.pt
-```
+## Project Structure
 
-Use any Ultralytics YOLO generation by changing `model` in `configs/training/train_bdd100k.yaml`:
-```yaml
-model: yolov8n.pt
-```
-Examples:
-- `model: yolo11n.pt`
-- `model: yolo26n.pt` (if supported in your installed Ultralytics version)
+- `src/ingestion`: video source and chunked ingestion
+- `src/detection`: YOLO detection
+- `src/segmentation`: YOLO segmentation
+- `src/tracking`: ByteTrack tracking
+- `src/events`: line crossing logic
+- `src/analytics`: traffic analytics
+- `src/storage`: CSV writing
+- `src/visualization`: overlays and rendering
+- `src/app/pipeline.py`: core runtime pipeline
 
-Then train:
-```bash
-python scripts/training/train_yolo.py --train-config configs/training/train_bdd100k.yaml
-```
-
-BDD100K conversion/training workflow:
-- `docs/TRAINING.md`
-- `scripts/training/prepare_bdd100k.py`
-- `configs/training/train_bdd100k.yaml`
-
-## Outputs
-- Runtime analytics: `outputs/metrics.csv`, `outputs/crossings.csv`
-- Training artifacts: `runs/detect/runs/flowtrack/*`
-- Documentation figures: `docs/assets/*`
-
-## Documentation
-- Full system documentation: `docs/PROJECT_DOCUMENTATION.md`
-- Model training report with metrics and figures: `docs/MODEL_REPORT.md`
-- Training guide: `docs/TRAINING.md`

@@ -43,3 +43,5 @@ datasets/
 # Streamlit and logs
 .streamlit/
 *.log
+
+.devcontainer/
