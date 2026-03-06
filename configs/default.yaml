@@ -8,8 +8,8 @@ app:
 source:
   input: "0"
   reconnect_delay_sec: 2.0
-  user_agent: ""
-  referer: ""
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/"
+  referer: "https://www.earthcam.com/"
   chunk_mode: true
   chunk_seconds: 12
   first_chunk_seconds: 20
@@ -20,7 +20,7 @@ source:
   processed_chunk_slots: 2
 
 model:
-  weights: "yolov8n.pt"
+  weights: "PretrainedYolo26/Detect.pt"
   device: ""
   conf: 0.35
   iou: 0.45
@@ -39,7 +39,7 @@ classes:
 
 segmentation:
   enabled: false
-  weights: "yolov8n-seg.pt"
+  weights: "PretrainedYolo26/Segment.pt"
   conf: 0.35
   iou: 0.45
   imgsz: 960

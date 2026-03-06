@@ -30,7 +30,7 @@ outputs/
 runs/
 artifacts/
 checkpoints/
-*.pt
+models/
 *.onnx
 *.engine
 *.torchscript
